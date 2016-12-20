@@ -435,6 +435,10 @@ void Tracker::mavlink_snoop(const mavlink_message_t* msg)
     case MAVLINK_MSG_ID_HEARTBEAT:
     {
         mavlink_check_target(msg);
+        if(target_set) {
+            // We keep track of the last time we received a heartbeat from vehicle for failed purposes
+		    tracker.vehicle.last_heartbeat_ms = AP_HAL::millis();
+		}
         break;
     }
 

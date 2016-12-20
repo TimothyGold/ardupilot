@@ -237,6 +237,57 @@ const AP_Param::Info Tracker::var_info[] = {
     // @User: Standard
     GSCALAR(pitch_max,               "PITCH_MAX",	PITCH_MAX_DEFAULT),
 
+    // @Param: INITIALIZING_PITCH
+    // @DisplayName: Initializing pitch angle
+    // @Description: The pitch that will be used while initializing
+    // @Units: Degrees
+    // @Increment: 1
+    // @Range: 0 90
+    // @User: Standard
+    GSCALAR(initializing_pitch,       "INIT_PITCH",	INITIALIZING_PITCH_DEFAULT),
+
+    // @Param: TRKMODE1
+	// @DisplayName: Tracker Mode 1
+	// @Description: Tracker mode when Channel 5 pwm is <= 1230
+	// @Values: 0:MANUAL,1:STOP,2:SCAN,3:SERVO_TEST,4:AUTO,5:INITIALISING
+	// @User: Standard
+	GSCALAR(tracker_mode1, "TRKMODE1",               TRACKER_MODE_1),
+
+	// @Param: TRKMODE2
+	// @DisplayName: Tracker Mode 2
+	// @Description: Tracker mode when Channel 5 pwm is >1230, <= 1360
+	// @Values: 0:MANUAL,1:STOP,2:SCAN,3:SERVO_TEST,4:AUTO,5:INITIALISING
+	// @User: Standard
+	GSCALAR(tracker_mode2, "TRKMODE2",               TRACKER_MODE_2),
+
+	// @Param: TRKMODE3
+	// @DisplayName: Tracker Mode 3
+	// @Description: Tracker mode when Channel 5 pwm is >1360, <= 1490
+	// @Values: 0:MANUAL,1:STOP,2:SCAN,3:SERVO_TEST,4:AUTO,5:INITIALISING
+	// @User: Standard
+	GSCALAR(tracker_mode3, "TRKMODE3",               TRACKER_MODE_3),
+
+	// @Param: TRKMODE4
+	// @DisplayName: Tracker Mode 4
+	// @Description: Tracker mode when Channel 5 pwm is >1490, <= 1620
+	// @Values: 0:MANUAL,1:STOP,2:SCAN,3:SERVO_TEST,4:AUTO,5:INITIALISING
+	// @User: Standard
+	GSCALAR(tracker_mode4, "TRKMODE4",               TRACKER_MODE_4),
+
+	// @Param: TRKMODE5
+	// @DisplayName: Tracker Mode 5
+	// @Description: Tracker mode when Channel 5 pwm is >1620, <= 1749
+	// @Values: 0:MANUAL,1:STOP,2:SCAN,3:SERVO_TEST,4:AUTO,5:INITIALISING
+	// @User: Standard
+	GSCALAR(tracker_mode5, "TRKMODE5",               TRACKER_MODE_5),
+
+	// @Param: TRKMODE6
+	// @DisplayName: Tracker Mode 6
+	// @Description: Tracker mode when Channel 5 pwm is >=1750
+	// @Values: 0:MANUAL,1:STOP,2:SCAN,3:SERVO_TEST,4:AUTO,5:INITIALISING
+	// @User: Standard
+	GSCALAR(tracker_mode6, "TRKMODE6",               TRACKER_MODE_6),
+
     // barometer ground calibration. The GND_ prefix is chosen for
     // compatibility with previous releases of ArduPlane
     // @Group: GND_
@@ -311,6 +362,10 @@ const AP_Param::Info Tracker::var_info[] = {
     // @Group: RC2_
     // @Path: ../libraries/RC_Channel/RC_Channel.cpp
     GOBJECT(channel_pitch,     "RC2_", RC_Channel),
+
+    // @Group: RC5_
+	// @Path: ../libraries/RC_Channel/RC_Channel.cpp,../libraries/RC_Channel/RC_Channel_aux.cpp
+	GOBJECT(channel_mode,       "RC5_", RC_Channel_aux),
 
     // @Group: SERIAL
     // @Path: ../libraries/AP_SerialManager/AP_SerialManager.cpp

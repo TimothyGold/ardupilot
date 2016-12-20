@@ -31,6 +31,7 @@
 const AP_Scheduler::Task Tracker::scheduler_tasks[] = {
     SCHED_TASK(update_ahrs,            50,   1000),
     SCHED_TASK(read_radio,             50,    200),
+    SCHED_TASK(read_control_switch,    50,    300),
     SCHED_TASK(update_tracking,        50,   1000),
     SCHED_TASK(update_GPS,             10,   4000),
     SCHED_TASK(update_compass,         10,   1500),
@@ -40,6 +41,7 @@ const AP_Scheduler::Task Tracker::scheduler_tasks[] = {
     SCHED_TASK(compass_accumulate,     50,   1500),
     SCHED_TASK(barometer_accumulate,   50,    900),
     SCHED_TASK(ten_hz_logging_loop,    10,    300),
+    SCHED_TASK(three_hz_loop,           3,   1000),
     SCHED_TASK(dataflash_periodic,     50,    300),
     SCHED_TASK(update_notify,          50,    100),
     SCHED_TASK(check_usb_mux,          10,    300),
@@ -83,6 +85,13 @@ void Tracker::loop()
     scheduler.tick();
 
     scheduler.run(19900UL);
+}
+
+// three_hz_loop - 3.3hz loop
+void Tracker::three_hz_loop()
+{
+    // check if we've lost contact with the Vehicle
+    vehicle_mavlink_check();
 }
 
 void Tracker::dataflash_periodic(void)
@@ -133,7 +142,8 @@ void Tracker::ten_hz_logging_loop()
 const AP_HAL::HAL& hal = AP_HAL::get_HAL();
 
 Tracker::Tracker(void)
-    : DataFlash{FIRMWARE_STRING}
+        :DataFlash{FIRMWARE_STRING},
+        tracker_modes(&g.tracker_mode1)
 {
     memset(&current_loc, 0, sizeof(current_loc));
     memset(&vehicle, 0, sizeof(vehicle));

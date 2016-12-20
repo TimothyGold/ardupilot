@@ -102,12 +102,24 @@ public:
         k_param_mavlink_update_rate,
         k_param_pitch_min,
         k_param_pitch_max,
+        k_param_initializing_pitch,
+
+        //
+		// 180: tracker modes
+		//
+		k_param_tracker_mode1 = 180,
+		k_param_tracker_mode2,
+		k_param_tracker_mode3,
+		k_param_tracker_mode4,
+		k_param_tracker_mode5,
+		k_param_tracker_mode6,
 
         //
         // 200 : Radio settings
         //
         k_param_channel_yaw = 200,
         k_param_channel_pitch,
+        k_param_channel_mode,
         k_param_pidPitch2Srv,
         k_param_pidYaw2Srv,
 
@@ -153,6 +165,16 @@ public:
     AP_Int16 distance_min;          // target's must be at least this distance from tracker to be tracked
     AP_Int16 pitch_min;
     AP_Int16 pitch_max;
+    AP_Int16 initializing_pitch;
+
+    // Tracker modes
+	//
+	AP_Int8 tracker_mode1;
+	AP_Int8 tracker_mode2;
+	AP_Int8 tracker_mode3;
+	AP_Int8 tracker_mode4;
+	AP_Int8 tracker_mode5;
+	AP_Int8 tracker_mode6;
 
     // Waypoints
     //
@@ -164,9 +186,17 @@ public:
     AC_PID         pidPitch2Srv;
     AC_PID         pidYaw2Srv;
 
+     // RC channels
+	RC_Channel		channel_yaw;
+	RC_Channel		channel_pitch;
+	RC_Channel_aux	channel_mode;
+
     Parameters() :
         pidPitch2Srv(0.2, 0, 0.05f, 4000.0f, 0.1, 0.02f),
-        pidYaw2Srv  (0.2, 0, 0.05f, 4000.0f, 0.1, 0.02f)
+        pidYaw2Srv  (0.2, 0, 0.05f, 4000.0f, 0.1, 0.02f),
+        channel_yaw             (CH_YAW),
+		channel_pitch			(CH_PITCH),
+		channel_mode            (CH_MODE)
         {}
 };
 

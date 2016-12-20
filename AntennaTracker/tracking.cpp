@@ -10,7 +10,8 @@ void Tracker::update_vehicle_pos_estimate()
     float dt = (AP_HAL::micros() - vehicle.last_update_us) * 1.0e-6f;
 
     // if less than 5 seconds since last position update estimate the position
-    if (dt < TRACKING_TIMEOUT_SEC) {
+    if(!vehicle.mavlink_lost && dt < TRACKING_TIMEOUT_SEC) {
+    //if (dt < TRACKING_TIMEOUT_SEC) {
         // project the vehicle position to take account of lost radio packets
         vehicle.location_estimate = vehicle.location;
         float north_offset = vehicle.vel.x * dt;
@@ -38,6 +39,27 @@ void Tracker::update_tracker_position()
     }
 }
 
+void Tracker::calc_pitch_angle_error(float pitch)
+{
+    // Pitch angle error in centidegrees
+    // Positive error means the target is above current pitch
+    // Negative error means the target is below current pitch
+    float ahrs_pitch = ahrs.pitch_sensor;
+    int32_t pitch_cd = pitch * 100;
+    nav_status.angle_error_pitch = pitch_cd - ahrs_pitch;
+}
+
+void Tracker::calc_yaw_angle_error(float yaw)
+{
+    // Yaw angle error in centidegrees
+    // Positive error means the target is right of current yaw
+    // Negative error means the target is left of current yaw
+    int32_t ahrs_yaw_cd = wrap_180_cd(ahrs.yaw_sensor);
+    float yaw_cd = wrap_180_cd(yaw*100.0f);
+    nav_status.angle_error_yaw = wrap_180_cd(yaw_cd - ahrs_yaw_cd);
+}
+
+
 /**
   update_bearing_and_distance - updates bearing and distance to the vehicle
   should be called at 50hz
@@ -45,13 +67,13 @@ void Tracker::update_tracker_position()
 void Tracker::update_bearing_and_distance()
 {
     // exit immediately if we do not have a valid vehicle position
-    if (!vehicle.location_valid) {
+    if (!vehicle.location_valid || control_mode == SERVO_TEST || control_mode == STOP) {
         return;
     }
 
     // calculate bearing to vehicle
     // To-Do: remove need for check of control_mode
-    if (control_mode != SCAN && !nav_status.manual_control_yaw) {
+    if (control_mode != SCAN && control_mode != MANUAL && !nav_status.manual_control_yaw) {
         nav_status.bearing  = get_bearing_cd(current_loc, vehicle.location_estimate) * 0.01f;
     }
 
@@ -68,7 +90,7 @@ void Tracker::update_bearing_and_distance()
 
     // calculate pitch to vehicle
     // To-Do: remove need for check of control_mode
-    if (control_mode != SCAN && !nav_status.manual_control_pitch) {
+    if (control_mode != SCAN && control_mode != MANUAL && !nav_status.manual_control_yaw) {
     	if (g.alt_source == ALT_SOURCE_BARO) {
     	    nav_status.pitch = degrees(atan2f(nav_status.alt_difference_baro, nav_status.distance));
     	} else {
@@ -117,7 +139,10 @@ void Tracker::update_tracking(void)
 
     case SERVO_TEST:
     case STOP:
+        disarm_servos();
+	    break;
     case INITIALISING:
+        update_initialising();
         break;
     }
 }
@@ -190,4 +215,34 @@ void Tracker::update_armed_disarmed()
     } else {
         AP_Notify::flags.armed = false;
     }
+}
+
+int delay_timer=0;  // fixme: this needs to be done properly
+
+void Tracker::update_initialising(void)
+{
+	// fixed angle for pitch initialising. Zero yaw servo output to prevent erratic movement.
+	nav_status.pitch = g.initializing_pitch;
+
+	channel_yaw.disable_out();
+	channel_pitch.enable_out();
+
+	//float pitch = constrain_float(nav_status.pitch+g.pitch_trim, -90, 90);
+	float pitch = nav_status.pitch+g.pitch_trim;
+	update_pitch_servo(pitch);
+
+	//Check measured pitch angle of ahrs
+	float ahrs_pitch = degrees(ahrs.pitch);
+	if (ahrs_pitch < g.initializing_pitch + 5 && ahrs_pitch > g.initializing_pitch - 5) {
+		if (delay_timer == 0) delay_timer = AP_HAL::millis();
+		// PITCH INITIALISING complete, switch to Scan mode after delay
+		if ((g.startup_delay > 0) && (AP_HAL::millis() - delay_timer < g.startup_delay*1000)) {
+			return;
+		}
+
+        channel_yaw.enable_out();
+
+		set_mode(SCAN);
+		initializing = false;
+	}
 }

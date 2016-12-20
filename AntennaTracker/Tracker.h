@@ -130,6 +130,7 @@ private:
     */
     RC_Channel channel_yaw{CH_YAW};
     RC_Channel channel_pitch{CH_PITCH};
+    RC_Channel_aux channel_mode{CH_MODE};
 
     LowPassFilterFloat yaw_servo_out_filt;
     LowPassFilterFloat pitch_servo_out_filt;
@@ -145,7 +146,12 @@ private:
 
     struct Location current_loc;
 
-    enum ControlMode control_mode  = INITIALISING;
+    //enum ControlMode control_mode  = INITIALISING;
+    //tracker modes convenience array
+	AP_Int8 *tracker_modes;
+	// This is the state of the control system
+	// There are multiple states defined such as AUTO, SCAN,
+	int8_t control_mode = INITIALISING;
 
     // Vehicle state
     struct {
@@ -156,6 +162,8 @@ private:
         uint32_t last_update_ms;    // last position update in milliseconds
         Vector3f vel;           // the vehicle's velocity in m/s
         int32_t relative_alt;	// the vehicle's relative altitude in meters * 100
+        bool mavlink_lost	:1;//lost vehicle mavlink
+        uint32_t last_heartbeat_ms; 
     } vehicle;
 
     // Navigation controller state
@@ -175,11 +183,22 @@ private:
         bool scan_reverse_yaw           : 1;// controls direction of yaw movement in SCAN mode
     } nav_status = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, false, false, true, false, false};
 
+	// Structure used to detect changes in the flight mode control switch
+	struct {
+		int8_t debounced_switch_position;   // currently used switch position
+		int8_t last_switch_position;        // switch position in previous iteration
+		uint32_t last_edge_time_ms;         // system time that switch position was last changed
+	} control_switch_state;
+
     // setup the var_info table
     AP_Param param_loader{var_info};
 
     uint8_t one_second_counter = 0;
     bool target_set = false;
+
+    bool initializing = true;
+	float pitch_lock_angle = 0;
+	bool pitch_lock = false;
 
     // use this to prevent recursion during sensor init
     bool in_mavlink_delay = false;
@@ -206,14 +225,13 @@ private:
     void gcs_retry_deferred(void);
     void load_parameters(void);
     void update_auto(void);
-    void calc_angle_error(float pitch, float yaw, bool direction_reversed);
-    void convert_ef_to_bf(float pitch, float yaw, float& bf_pitch, float& bf_yaw);
-    bool convert_bf_to_ef(float pitch, float yaw, float& ef_pitch, float& ef_yaw);
-    bool get_ef_yaw_direction();
+    void calc_pitch_angle_error(float pitch);
+    void calc_yaw_angle_error(float yaw);
     void update_manual(void);
     void update_scan(void);
     bool servo_test_set_servo(uint8_t servo_num, uint16_t pwm);
     void read_radio();
+    void read_control_switch();
     void init_barometer(bool full_calibration);
     void update_barometer(void);
     void update_ahrs();
@@ -239,7 +257,8 @@ private:
     void arm_servos();
     void disarm_servos();
     void prepare_servos();
-    void set_mode(enum ControlMode mode);
+    bool set_mode(uint8_t mode);
+    //void set_mode(enum ControlMode mode);
     bool mavlink_set_mode(uint8_t mode);
     void check_usb_mux(void);
     void update_vehicle_pos_estimate();
@@ -249,9 +268,14 @@ private:
     void tracking_update_position(const mavlink_global_position_int_t &msg);
     void tracking_update_pressure(const mavlink_scaled_pressure_t &msg);
     void tracking_manual_control(const mavlink_manual_control_t &msg);
+    void update_initialising(void);
+    void check_manual_pitch_limits(int16_t pitch_pwm);
     void update_armed_disarmed();
     void gcs_send_text_fmt(MAV_SEVERITY severity, const char *fmt, ...);
     void init_capabilities(void);
+    void vehicle_mavlink_check();
+	void set_vehicle_mavlink_lost(bool b);
+    void three_hz_loop();
     void compass_cal_update();
     void Log_Write_Attitude();
     void Log_Write_Baro(void);

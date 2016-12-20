@@ -106,14 +106,13 @@ void Tracker::init_tracker()
     gcs_send_text(MAV_SEVERITY_INFO,"Ready to track");
     hal.scheduler->delay(1000); // Why????
 
-    set_mode(AUTO); // tracking
-
     if (g.startup_delay > 0) {
         // arm servos with trim value to allow them to start up (required
         // for some servos)
         prepare_servos();
     }
 
+    set_mode(INITIALISING); // Special startup mode to handle tracker movements properly (first stabilize pitch, then yaw)
 }
 
 // updates the status of the notify objects
@@ -169,8 +168,32 @@ void Tracker::arm_servos()
 
 void Tracker::disarm_servos()
 {
-    channel_yaw.disable_out();
-    channel_pitch.disable_out();
+    if ((enum ServoType)g.servo_pitch_type.get() == SERVO_TYPE_CR) {
+	    //Pitch control is stopped
+	    if (!pitch_lock) {
+            //Check measured pitch angle of ahrs
+	        float ahrs_pitch = degrees(ahrs.pitch);
+
+		    pitch_lock_angle = ahrs_pitch;
+		    pitch_lock = true;
+	    }
+
+		if (pitch_lock) {
+            float pitch = pitch_lock_angle + g.pitch_trim;
+			update_pitch_servo(pitch);
+		}
+	} else {
+		channel_pitch.disable_out();
+    }
+
+	if ((enum ServoType)g.servo_yaw_type.get() == SERVO_TYPE_CR) {
+		channel_yaw.set_radio_out(channel_yaw.get_radio_trim());
+
+		channel_yaw.enable_out();
+		channel_yaw.output();
+	} else {
+		channel_yaw.disable_out();
+    }
 }
 
 /*
@@ -181,34 +204,54 @@ void Tracker::prepare_servos()
     start_time_ms = AP_HAL::millis();
     channel_yaw.set_radio_out(channel_yaw.get_radio_trim());
     channel_pitch.set_radio_out(channel_pitch.get_radio_trim());
+
     channel_yaw.output();
     channel_pitch.output();
 }
 
-void Tracker::set_mode(enum ControlMode mode)
+bool Tracker::set_mode(uint8_t mode)
 {
-    if (control_mode == mode) {
-        // don't switch modes if we are already in the correct mode.
-        return;
-    }
+	// boolean to record if tracker mode could be set
+	bool success = false;
+
+	// return immediately if we are already in the desired mode
+	if (mode == control_mode) {
+		return true;
+	}
+
     control_mode = mode;
 
 	switch (control_mode) {
-    case AUTO:
-    case MANUAL:
-    case SCAN:
-    case SERVO_TEST:
-        arm_servos();
+	case MANUAL:
+        pitch_lock = false;
+		success = true;        
+		break;
+	case SCAN:
+		success = true;
+		break;
+	case SERVO_TEST:
+		break;
+	case STOP:
+		pitch_lock = false;
+		success = true;
+		break;
+	case AUTO:
+		success = true;
+		break;
+	case INITIALISING:
+        success = true;
         break;
-
-    case STOP:
-    case INITIALISING:
-        disarm_servos();
-        break;
-    }
+	default:
+		success = false;
+		break;
+	}
 
 	// log mode change
 	DataFlash.Log_Write_Mode(control_mode);
+
+	// return success or failure
+	return success;
+
 }
 
 /*
@@ -216,16 +259,17 @@ void Tracker::set_mode(enum ControlMode mode)
  */
 bool Tracker::mavlink_set_mode(uint8_t mode)
 {
-    switch (mode) {
-    case AUTO:
-    case MANUAL:
-    case SCAN:
-    case SERVO_TEST:
-    case STOP:
-        set_mode((enum ControlMode)mode);
-        return true;
-    }
-    return false;
+    return set_mode(mode);
+    //switch (mode) {
+    //case AUTO:
+    //case MANUAL:
+    //case SCAN:
+    //case SERVO_TEST:
+    //case STOP:
+    //    set_mode((enum ControlMode)mode);
+    //    return true;
+    //}
+    //return false;
 }
 
 void Tracker::check_usb_mux(void)

@@ -33,6 +33,10 @@
 #ifndef CH_PITCH
  # define CH_PITCH      CH_2    // RC input/output for pitch on channel 2
 #endif
+#ifndef CH_MODE
+ # define CH_MODE		CH_5    // RC input/output for mode on channel 5
+#endif
+
 
 
 //////////////////////////////////////////////////////////////////////////////
@@ -47,6 +51,10 @@
 #ifndef PITCH_MAX_DEFAULT
  # define PITCH_MAX_DEFAULT 90
 #endif
+#ifndef INITIALIZING_PITCH_DEFAULT
+ # define INITIALIZING_PITCH_DEFAULT 45
+#endif
+
 
 //////////////////////////////////////////////////////////////////////////////
 // Tracking definitions
@@ -60,6 +68,30 @@
 #ifndef DISTANCE_MIN_DEFAULT
  # define DISTANCE_MIN_DEFAULT              5.0f    // do not track targets within 5 meters
 #endif
+
+//////////////////////////////////////////////////////////////////////////////
+// TRACKER_MODE
+//
+
+#ifndef TRACKER_MODE_1
+ # define TRACKER_MODE_1                  AUTO
+#endif
+#ifndef TRACKER_MODE_2
+ # define TRACKER_MODE_2                  MANUAL
+#endif
+#ifndef TRACKER_MODE_3
+ # define TRACKER_MODE_3                  STOP
+#endif
+#ifndef TRACKER_MODE_4
+ # define TRACKER_MODE_4                  AUTO
+#endif
+#ifndef TRACKER_MODE_5
+ # define TRACKER_MODE_5                  AUTO
+#endif
+#ifndef TRACKER_MODE_6
+ # define TRACKER_MODE_6                  AUTO
+#endif
+
 
 //
 // Dataflash logging control

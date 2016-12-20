@@ -29,6 +29,11 @@ void Tracker::init_servos()
  */
 void Tracker::update_pitch_servo(float pitch)
 {
+    if (pitch < g.pitch_min) pitch = g.pitch_min;
+    if (pitch > g.pitch_max) pitch = g.pitch_max;
+
+    calc_pitch_angle_error(pitch);
+
     switch ((enum ServoType)g.servo_pitch_type.get()) {
     case SERVO_TYPE_ONOFF:
         update_pitch_onoff_servo(pitch);
@@ -45,6 +50,7 @@ void Tracker::update_pitch_servo(float pitch)
     }
 
     // convert servo_out to radio_out and send to servo
+    channel_pitch.enable_out();
     channel_pitch.calc_pwm();
     channel_pitch.output();
 }
@@ -126,13 +132,9 @@ void Tracker::update_pitch_onoff_servo(float pitch)
    update the pitch for continuous rotation servo
 */
 void Tracker::update_pitch_cr_servo(float pitch)
-{
-    int32_t pitch_min_cd = g.pitch_min*100;
-    int32_t pitch_max_cd = g.pitch_max*100;
-    if ((pitch>pitch_min_cd) && (pitch<pitch_max_cd)) {
-        g.pidPitch2Srv.set_input_filter_all(nav_status.angle_error_pitch);
-        channel_pitch.set_servo_out(g.pidPitch2Srv.get_pid());
-    }
+{    
+    g.pidPitch2Srv.set_input_filter_all(nav_status.angle_error_pitch);
+    channel_pitch.set_servo_out(g.pidPitch2Srv.get_pid());
 }
 
 /**
@@ -140,6 +142,8 @@ void Tracker::update_pitch_cr_servo(float pitch)
  */
 void Tracker::update_yaw_servo(float yaw)
 {
+    calc_yaw_angle_error(yaw);
+
 	switch ((enum ServoType)g.servo_yaw_type.get()) {
     case SERVO_TYPE_ONOFF:
         update_yaw_onoff_servo(yaw);
@@ -156,6 +160,7 @@ void Tracker::update_yaw_servo(float yaw)
     }
 
     // convert servo_out to radio_out and send to servo
+    channel_yaw.enable_out();
     channel_yaw.calc_pwm();
     channel_yaw.output();
 }
@@ -250,5 +255,5 @@ void Tracker::update_yaw_onoff_servo(float yaw)
 void Tracker::update_yaw_cr_servo(float yaw)
 {
     g.pidYaw2Srv.set_input_filter_all(nav_status.angle_error_yaw);
-    channel_yaw.set_servo_out(-g.pidYaw2Srv.get_pid());
+    channel_yaw.set_servo_out(g.pidYaw2Srv.get_pid());
 }
