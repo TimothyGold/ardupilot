@@ -263,7 +263,7 @@ build_arduplane() {
         return
     }
     skip_build $tag $ddir || {
-        for v in v1 v2 v4; do
+        for v in v1 v2 v3 v4; do
             make px4-clean
             make px4-$v -j2 || {
                 echo "Failed build of ArduPlane PX4 $tag for $v"
@@ -275,6 +275,7 @@ build_arduplane() {
         done
         copyit ArduPlane-v1.px4 $ddir $tag &&
         copyit ArduPlane-v2.px4 $ddir $tag &&
+        test ! -f ArduPlane-v3.px4 || copyit ArduPlane-v3.px4 $ddir $tag &&
         test ! -f ArduPlane-v4.px4 || copyit ArduPlane-v4.px4 $ddir $tag
         if [ "$tag" = "latest" ]; then
             copyit px4io-v1.bin $binaries/PX4IO/$hdate/PX4IO $tag
@@ -291,7 +292,11 @@ build_arduplane() {
 build_arducopter() {
     tag="$1"
     echo "Building ArduCopter $tag binaries from $(pwd)"
-    frames="quad tri hexa y6 octa octa-quad heli"
+    if grep -q FRAME_CLASS ArduCopter/Parameters.cpp; then
+        frames="quad tri heli"
+    else
+        frames="quad tri hexa y6 octa octa-quad heli"
+    fi
     for b in erlebrain2 navio navio2 pxf pxfmini bebop; do
         for f in $frames; do
             checkout ArduCopter $tag $b $f || {
@@ -327,7 +332,7 @@ build_arducopter() {
         echo "Building ArduCopter PX4-$f binaries"
         ddir="$binaries/Copter/$hdate/PX4-$f"
         skip_build $tag $ddir && continue
-        for v in v1 v2 v4; do
+        for v in v1 v2 v3 v4; do
             make px4-clean
             make px4-$v-$f -j2 || {
                 echo "Failed build of ArduCopter PX4 $tag for $v"
@@ -337,6 +342,7 @@ build_arducopter() {
         done
         copyit ArduCopter-v1.px4 $ddir $tag &&
         copyit ArduCopter-v2.px4 $ddir $tag &&
+        test ! -f ArduCopter-v3.px4 || copyit ArduCopter-v3.px4 $ddir $tag &&
         test ! -f ArduCopter-v4.px4 || copyit ArduCopter-v4.px4 $ddir $tag
     done
     checkout ArduCopter "latest" "" ""
@@ -388,7 +394,7 @@ build_rover() {
         return
     }
     skip_build $tag $ddir || {
-        for v in v1 v2 v4; do
+        for v in v1 v2 v3 v4; do
             make px4-clean
             make px4-$v -j2 || {
                 echo "Failed build of APMrover2 PX4 $tag"
@@ -400,6 +406,7 @@ build_rover() {
         done
         copyit APMrover2-v1.px4 $binaries/Rover/$hdate/PX4 $tag &&
         copyit APMrover2-v2.px4 $binaries/Rover/$hdate/PX4 $tag &&
+        test ! -f APMrover2-v3.px4 || copyit APMrover2-v3.px4 $binaries/Rover/$hdate/PX4 $tag &&
         test ! -f APMrover2-v4.px4 || copyit APMrover2-v4.px4 $binaries/Rover/$hdate/PX4 $tag 
     }
     checkout APMrover2 "latest" "" ""
@@ -454,7 +461,7 @@ build_antennatracker() {
         return
     }
     skip_build $tag $ddir || {
-        for v in v1 v2 v4; do
+        for v in v1 v2 v3 v4; do
             make px4-clean
             make px4-$v -j2 || {
                 echo "Failed build of AntennaTracker PX4 $tag"
@@ -466,6 +473,7 @@ build_antennatracker() {
         done
         copyit AntennaTracker-v1.px4 $binaries/AntennaTracker/$hdate/PX4 $tag &&
         copyit AntennaTracker-v2.px4 $binaries/AntennaTracker/$hdate/PX4 $tag &&
+        test ! -f AntennaTracker-v3.px4 || copyit AntennaTracker-v3.px4 $binaries/AntennaTracker/$hdate/PX4 $tag &&
         test ! -f AntennaTracker-v4.px4 || copyit AntennaTracker-v4.px4 $binaries/AntennaTracker/$hdate/PX4 $tag 
     }
     checkout AntennaTracker "latest" "" ""
