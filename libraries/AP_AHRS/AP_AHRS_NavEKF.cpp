@@ -428,7 +428,7 @@ bool AP_AHRS_NavEKF::use_compass(void)
 bool AP_AHRS_NavEKF::get_secondary_attitude(Vector3f &eulers)
 {
     switch (active_EKF_type()) {
-        case EKF_TYPE_NONE:
+    case EKF_TYPE_NONE:
         // EKF is secondary
         EKF2.getEulerAngles(-1, eulers);
         return ekf2_started;
@@ -438,9 +438,9 @@ bool AP_AHRS_NavEKF::get_secondary_attitude(Vector3f &eulers)
     case EKF_TYPE3:
 
     default:
-            // DCM is secondary
-            eulers = _dcm_attitude;
-            return true;
+        // DCM is secondary
+        eulers = _dcm_attitude;
+        return true;
     }
 }
 
@@ -507,23 +507,23 @@ bool AP_AHRS_NavEKF::have_inertial_nav(void) const
 bool AP_AHRS_NavEKF::get_velocity_NED(Vector3f &vec) const
 {
     switch (active_EKF_type()) {
-        case EKF_TYPE_NONE:
-            return false;
+    case EKF_TYPE_NONE:
+        return false;
 
-        case EKF_TYPE2:
-        default:
-            EKF2.getVelNED(-1,vec);
-            return true;
+    case EKF_TYPE2:
+    default:
+        EKF2.getVelNED(-1,vec);
+        return true;
 
-        case EKF_TYPE3:
-            EKF3.getVelNED(-1,vec);
-            return true;
+    case EKF_TYPE3:
+        EKF3.getVelNED(-1,vec);
+        return true;
 
 #if CONFIG_HAL_BOARD == HAL_BOARD_SITL
-        case EKF_TYPE_SITL:
-            const struct SITL::sitl_fdm &fdm = _sitl->state;
-            vec = Vector3f(fdm.speedN, fdm.speedE, fdm.speedD);
-            return true;
+    case EKF_TYPE_SITL:
+        const struct SITL::sitl_fdm &fdm = _sitl->state;
+        vec = Vector3f(fdm.speedN, fdm.speedE, fdm.speedD);
+        return true;
 #endif
     }
 }
@@ -532,21 +532,21 @@ bool AP_AHRS_NavEKF::get_velocity_NED(Vector3f &vec) const
 bool AP_AHRS_NavEKF::get_mag_field_NED(Vector3f &vec) const
 {
     switch (active_EKF_type()) {
-        case EKF_TYPE_NONE:
-            return false;
+    case EKF_TYPE_NONE:
+        return false;
 
-        case EKF_TYPE2:
-        default:
-            EKF2.getMagNED(-1,vec);
-            return true;
+    case EKF_TYPE2:
+    default:
+        EKF2.getMagNED(-1,vec);
+        return true;
 
-        case EKF_TYPE3:
-            EKF3.getMagNED(-1,vec);
-            return true;
+    case EKF_TYPE3:
+        EKF3.getMagNED(-1,vec);
+        return true;
 
 #if CONFIG_HAL_BOARD == HAL_BOARD_SITL
-        case EKF_TYPE_SITL:
-            return false;
+    case EKF_TYPE_SITL:
+        return false;
 #endif
     }
 }
@@ -555,22 +555,22 @@ bool AP_AHRS_NavEKF::get_mag_field_NED(Vector3f &vec) const
 bool AP_AHRS_NavEKF::get_mag_field_correction(Vector3f &vec) const
 {
     switch (active_EKF_type()) {
-        case EKF_TYPE_NONE:
-            return false;
+    case EKF_TYPE_NONE:
+        return false;
 
-        case EKF_TYPE2:
-        default:
-            EKF2.getMagXYZ(-1,vec);
-            return true;
+    case EKF_TYPE2:
+    default:
+        EKF2.getMagXYZ(-1,vec);
+        return true;
 
-        case EKF_TYPE3:
-            EKF3.getMagXYZ(-1,vec);
-            return true;
+    case EKF_TYPE3:
+        EKF3.getMagXYZ(-1,vec);
+        return true;
 
-            #if CONFIG_HAL_BOARD == HAL_BOARD_SITL
-        case EKF_TYPE_SITL:
-            return false;
-            #endif
+#if CONFIG_HAL_BOARD == HAL_BOARD_SITL
+    case EKF_TYPE_SITL:
+        return false;
+#endif
     }
 }
 
@@ -1013,6 +1013,13 @@ void AP_AHRS_NavEKF::getEkfControlLimits(float &ekfGndSpdLimit, float &ekfNavVel
         EKF3.getEkfControlLimits(ekfGndSpdLimit,ekfNavVelGainScaler);
         break;
 
+#if CONFIG_HAL_BOARD == HAL_BOARD_SITL
+    case EKF_TYPE_SITL:
+        // same as EKF2 for no optical flow
+        ekfGndSpdLimit = 400.0f;
+        ekfNavVelGainScaler = 1.0f;
+        break;
+#endif
     }
 }
 
@@ -1369,9 +1376,10 @@ void AP_AHRS_NavEKF::setTouchdownExpected(bool val)
 
 bool AP_AHRS_NavEKF::getGpsGlitchStatus()
 {
-    nav_filter_status ekf_status;
-    get_filter_status(ekf_status);
-
+    nav_filter_status ekf_status {};
+    if (!get_filter_status(ekf_status)) {
+        return false;
+    }
     return ekf_status.flags.gps_glitching;
 }
 
