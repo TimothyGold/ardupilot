@@ -224,10 +224,6 @@ void Tracker::update_initialising(void)
 	// fixed angle for pitch initialising. Zero yaw servo output to prevent erratic movement.
 	nav_status.pitch = g.initializing_pitch;
 
-	channel_yaw.disable_out();
-	channel_pitch.enable_out();
-
-	//float pitch = constrain_float(nav_status.pitch+g.pitch_trim, -90, 90);
 	float pitch = nav_status.pitch+g.pitch_trim;
 	update_pitch_servo(pitch);
 
@@ -239,8 +235,6 @@ void Tracker::update_initialising(void)
 		if ((g.startup_delay > 0) && (AP_HAL::millis() - delay_timer < g.startup_delay*1000)) {
 			return;
 		}
-
-        channel_yaw.enable_out();
 
 		set_mode(SCAN);
 		initializing = false;

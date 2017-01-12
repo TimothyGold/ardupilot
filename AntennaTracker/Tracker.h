@@ -128,9 +128,6 @@ private:
     /**
        antenna control channels
     */
-    //RC_Channel channel_yaw{CH_YAW};
-    //RC_Channel channel_pitch{CH_PITCH};
-    //RC_Channel_aux channel_mode{CH_MODE};
     RC_Channels rc_channels;
     SRV_Channels servo_channels;
 
