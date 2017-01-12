@@ -161,13 +161,13 @@ void Tracker::set_home(struct Location temp)
 }
 
 void Tracker::arm_servos()
-{    
-    channel_yaw.enable_out();
-    channel_pitch.enable_out();
+{
+    hal.util->set_soft_armed(true);
 }
 
 void Tracker::disarm_servos()
 {
+<<<<<<< HEAD
     if ((enum ServoType)g.servo_pitch_type.get() == SERVO_TYPE_CR) {
 	    //Pitch control is stopped
 	    if (!pitch_lock) {
@@ -194,6 +194,9 @@ void Tracker::disarm_servos()
 	} else {
 		channel_yaw.disable_out();
     }
+=======
+    hal.util->set_soft_armed(false);
+>>>>>>> refs/remotes/ArduPilot/master
 }
 
 /*
@@ -202,11 +205,18 @@ void Tracker::disarm_servos()
 void Tracker::prepare_servos()
 {
     start_time_ms = AP_HAL::millis();
+<<<<<<< HEAD
     channel_yaw.set_radio_out(channel_yaw.get_radio_trim());
     channel_pitch.set_radio_out(channel_pitch.get_radio_trim());
 
     channel_yaw.output();
     channel_pitch.output();
+=======
+    SRV_Channels::set_output_limit(SRV_Channel::k_tracker_yaw, SRV_Channel::SRV_CHANNEL_LIMIT_TRIM);
+    SRV_Channels::set_output_limit(SRV_Channel::k_tracker_pitch, SRV_Channel::SRV_CHANNEL_LIMIT_TRIM);
+    SRV_Channels::calc_pwm();
+    SRV_Channels::output_ch_all();
+>>>>>>> refs/remotes/ArduPilot/master
 }
 
 bool Tracker::set_mode(uint8_t mode)

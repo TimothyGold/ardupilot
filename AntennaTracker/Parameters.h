@@ -117,11 +117,18 @@ public:
         //
         // 200 : Radio settings
         //
+<<<<<<< HEAD
         k_param_channel_yaw = 200,
         k_param_channel_pitch,
         k_param_channel_mode,
+=======
+        k_param_channel_yaw_old = 200,
+        k_param_channel_pitch_old,
+>>>>>>> refs/remotes/ArduPilot/master
         k_param_pidPitch2Srv,
         k_param_pidYaw2Srv,
+        k_param_rc_channels,
+        k_param_servo_channels,
 
         //
         // 220: Waypoint data
