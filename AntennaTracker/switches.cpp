@@ -10,12 +10,13 @@ void Tracker::read_control_switch()
 
 	// calculate position of tracker mode switch
 	int8_t switch_position;
-	if      (channel_mode.get_radio_in() < 1231) switch_position = 0;
-	else if (channel_mode.get_radio_in() < 1361) switch_position = 1;
-	else if (channel_mode.get_radio_in() < 1491) switch_position = 2;
-	else if (channel_mode.get_radio_in() < 1621) switch_position = 3;
-	else if (channel_mode.get_radio_in() < 1750) switch_position = 4;
-	else switch_position = 5;
+	uint16_t rc5_in = RC_Channels::rc_channel(CH_MODE)->get_radio_in();
+    if      (rc5_in < 1231) switch_position = 0;
+    else if (rc5_in < 1361) switch_position = 1;
+    else if (rc5_in < 1491) switch_position = 2;
+    else if (rc5_in < 1621) switch_position = 3;
+    else if (rc5_in < 1750) switch_position = 4;
+else switch_position = 5;
 
 	if (initializing)
 		return;

@@ -10,9 +10,8 @@
 */
 void Tracker::update_manual(void)
 {
-<<<<<<< HEAD
     if ((enum ServoType)g.servo_pitch_type.get() == SERVO_TYPE_CR) {
-    int16_t	radio_in = constrain_int16(channel_pitch.get_radio_in(), channel_pitch.get_radio_min(), channel_pitch.get_radio_max());
+    int16_t	radio_in = constrain_int16(RC_Channels::rc_channel(CH_PITCH)->get_radio_in(), RC_Channels::rc_channel(CH_PITCH)->get_radio_min(), RC_Channels::rc_channel(CH_PITCH)->get_radio_max());
 
     //Check for Radio center to lock angle
     //Check to see if we should lock the pitch angle
@@ -22,30 +21,19 @@ void Tracker::update_manual(void)
         float pitch = pitch_lock_angle + g.pitch_trim;
         update_pitch_servo(pitch);
     } else {
-        channel_pitch.set_radio_out(radio_in);
-        channel_pitch.enable_out();
-        channel_pitch.output();
+        SRV_Channels::set_output_pwm(SRV_Channel::k_tracker_pitch, radio_in);
+        SRV_Channels::constrain_pwm(SRV_Channel::k_tracker_pitch);
     }
     } else {
-        channel_pitch.set_radio_out(constrain_int16(channel_pitch.get_radio_in(), channel_pitch.get_radio_min(), channel_pitch.get_radio_max()));
-        channel_pitch.enable_out();
-        channel_pitch.output();
+        SRV_Channels::set_output_pwm(SRV_Channel::k_tracker_pitch, constrain_int16(RC_Channels::rc_channel(CH_PITCH)->get_radio_in(), RC_Channels::rc_channel(CH_PITCH)->get_radio_min(), RC_Channels::rc_channel(CH_PITCH)->get_radio_max()));
+        SRV_Channels::constrain_pwm(SRV_Channel::k_tracker_pitch);
     }
-
-    // copy yaw input to output
-    channel_yaw.set_radio_out(constrain_int16(channel_yaw.get_radio_in(), channel_yaw.get_radio_min(), channel_yaw.get_radio_max()));
-    channel_yaw.output();
-=======
     // copy yaw and pitch input to output
     SRV_Channels::set_output_pwm(SRV_Channel::k_tracker_yaw, RC_Channels::rc_channel(CH_YAW)->get_radio_in());
     SRV_Channels::constrain_pwm(SRV_Channel::k_tracker_yaw);
-    
-    SRV_Channels::set_output_pwm(SRV_Channel::k_tracker_pitch, RC_Channels::rc_channel(CH_PITCH)->get_radio_in());
-    SRV_Channels::constrain_pwm(SRV_Channel::k_tracker_pitch);
-    
+        
     SRV_Channels::calc_pwm();
     SRV_Channels::output_ch_all();
->>>>>>> refs/remotes/ArduPilot/master
 }
 
 /*
@@ -59,9 +47,9 @@ void Tracker::check_manual_pitch_limits(int16_t pitch_pwm)
 
     if (ahrs_pitch >= g.pitch_max) { //MAX LIMIT
         //Check if servo is reversed and limit servo in one direction only
-        if (!channel_pitch.get_reverse() && (pitch_pwm < channel_pitch.get_radio_trim())) { //Normal Servo Direction
+        if (!RC_Channels::rc_channel(CH_PITCH)->get_reverse() && (pitch_pwm < RC_Channels::rc_channel(CH_PITCH)->get_radio_trim())) { //Normal Servo Direction
             pitch_lock = false;
-        } else if (channel_pitch.get_reverse() && (pitch_pwm > channel_pitch.get_radio_trim())) { //Reversed Servo Direction
+        } else if (RC_Channels::rc_channel(CH_PITCH)->get_reverse() && (pitch_pwm > RC_Channels::rc_channel(CH_PITCH)->get_radio_trim())) { //Reversed Servo Direction
             pitch_lock = false;
             } else {
             pitch_lock_angle = g.pitch_max;
@@ -72,9 +60,9 @@ void Tracker::check_manual_pitch_limits(int16_t pitch_pwm)
 
     if (ahrs_pitch <= g.pitch_min) { //MIN LIMIT
         //Check if servo is reversed and limit servo in one direction only
-        if (!channel_pitch.get_reverse() && (pitch_pwm > channel_pitch.get_radio_trim())) { //Normal Servo Direction
+        if (!RC_Channels::rc_channel(CH_PITCH)->get_reverse() && (pitch_pwm > RC_Channels::rc_channel(CH_PITCH)->get_radio_trim())) { //Normal Servo Direction
             pitch_lock = false;
-        } else if (channel_pitch.get_reverse() && (pitch_pwm < channel_pitch.get_radio_trim())) { //Reversed Servo Direction
+        } else if (RC_Channels::rc_channel(CH_PITCH)->get_reverse() && (pitch_pwm < RC_Channels::rc_channel(CH_PITCH)->get_radio_trim())) { //Reversed Servo Direction
             pitch_lock = false;
         } else {
             pitch_lock_angle = g.pitch_min;
@@ -83,7 +71,7 @@ void Tracker::check_manual_pitch_limits(int16_t pitch_pwm)
         return;
     }
 
-    if (pitch_pwm > (channel_pitch.get_radio_trim() - 10) && pitch_pwm < (channel_pitch.get_radio_trim() + 10)) {
+    if (pitch_pwm > (RC_Channels::rc_channel(CH_PITCH)->get_radio_trim() - 10) && pitch_pwm < (RC_Channels::rc_channel(CH_PITCH)->get_radio_trim() + 10)) {
         if (!pitch_lock) {
         pitch_lock_angle = ahrs_pitch;
         pitch_lock = true;

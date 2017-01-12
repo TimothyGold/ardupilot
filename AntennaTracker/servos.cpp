@@ -51,14 +51,8 @@ void Tracker::update_pitch_servo(float pitch)
     }
 
     // convert servo_out to radio_out and send to servo
-<<<<<<< HEAD
-    channel_pitch.enable_out();
-    channel_pitch.calc_pwm();
-    channel_pitch.output();
-=======
     SRV_Channels::calc_pwm();
     SRV_Channels::output_ch_all();
->>>>>>> refs/remotes/ArduPilot/master
 }
 
 /**
@@ -138,11 +132,6 @@ void Tracker::update_pitch_onoff_servo(float pitch)
    update the pitch for continuous rotation servo
 */
 void Tracker::update_pitch_cr_servo(float pitch)
-<<<<<<< HEAD
-{    
-    g.pidPitch2Srv.set_input_filter_all(nav_status.angle_error_pitch);
-    channel_pitch.set_servo_out(g.pidPitch2Srv.get_pid());
-=======
 {
     int32_t pitch_min_cd = g.pitch_min*100;
     int32_t pitch_max_cd = g.pitch_max*100;
@@ -150,7 +139,6 @@ void Tracker::update_pitch_cr_servo(float pitch)
         g.pidPitch2Srv.set_input_filter_all(nav_status.angle_error_pitch);
         SRV_Channels::set_output_scaled(SRV_Channel::k_tracker_pitch, g.pidPitch2Srv.get_pid());
     }
->>>>>>> refs/remotes/ArduPilot/master
 }
 
 /**
@@ -176,14 +164,8 @@ void Tracker::update_yaw_servo(float yaw)
     }
 
     // convert servo_out to radio_out and send to servo
-<<<<<<< HEAD
-    channel_yaw.enable_out();
-    channel_yaw.calc_pwm();
-    channel_yaw.output();
-=======
     SRV_Channels::calc_pwm();
     SRV_Channels::output_ch_all();
->>>>>>> refs/remotes/ArduPilot/master
 }
 
 /**
@@ -276,9 +258,5 @@ void Tracker::update_yaw_onoff_servo(float yaw)
 void Tracker::update_yaw_cr_servo(float yaw)
 {
     g.pidYaw2Srv.set_input_filter_all(nav_status.angle_error_yaw);
-<<<<<<< HEAD
-    channel_yaw.set_servo_out(g.pidYaw2Srv.get_pid());
-=======
     SRV_Channels::set_output_scaled(SRV_Channel::k_tracker_yaw, -g.pidYaw2Srv.get_pid());
->>>>>>> refs/remotes/ArduPilot/master
 }

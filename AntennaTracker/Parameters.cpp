@@ -356,16 +356,13 @@ const AP_Param::Info Tracker::var_info[] = {
     // @Path: ../libraries/RC_Channel/RC_Channel.cpp
     GOBJECT(rc_channels,     "RC", RC_Channels),
 
-<<<<<<< HEAD
-    // @Group: RC5_
-	// @Path: ../libraries/RC_Channel/RC_Channel.cpp,../libraries/RC_Channel/RC_Channel_aux.cpp
-	GOBJECT(channel_mode,       "RC5_", RC_Channel_aux),
+ //   // @Group: RC5_
+	//// @Path: ../libraries/RC_Channel/RC_Channel.cpp,../libraries/RC_Channel/RC_Channel_aux.cpp
+	//GOBJECT(channel_mode,       "RC5_", RC_Channel_aux),
 
-=======
     // @Path: ../libraries/SRV_Channel/SRV_Channel.cpp
     GOBJECT(servo_channels,     "SERVO", SRV_Channels),
     
->>>>>>> refs/remotes/ArduPilot/master
     // @Group: SERIAL
     // @Path: ../libraries/AP_SerialManager/AP_SerialManager.cpp
     GOBJECT(serial_manager,    "SERIAL",   AP_SerialManager),

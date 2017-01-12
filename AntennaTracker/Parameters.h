@@ -117,14 +117,9 @@ public:
         //
         // 200 : Radio settings
         //
-<<<<<<< HEAD
-        k_param_channel_yaw = 200,
-        k_param_channel_pitch,
-        k_param_channel_mode,
-=======
         k_param_channel_yaw_old = 200,
         k_param_channel_pitch_old,
->>>>>>> refs/remotes/ArduPilot/master
+        k_param_channel_mode_old,
         k_param_pidPitch2Srv,
         k_param_pidYaw2Srv,
         k_param_rc_channels,
@@ -193,17 +188,10 @@ public:
     AC_PID         pidPitch2Srv;
     AC_PID         pidYaw2Srv;
 
-     // RC channels
-	RC_Channel		channel_yaw;
-	RC_Channel		channel_pitch;
-	RC_Channel_aux	channel_mode;
 
     Parameters() :
         pidPitch2Srv(0.2, 0, 0.05f, 4000.0f, 0.1, 0.02f),
-        pidYaw2Srv  (0.2, 0, 0.05f, 4000.0f, 0.1, 0.02f),
-        channel_yaw             (CH_YAW),
-		channel_pitch			(CH_PITCH),
-		channel_mode            (CH_MODE)
+        pidYaw2Srv  (0.2, 0, 0.05f, 4000.0f, 0.1, 0.02f)
         {}
 };
 

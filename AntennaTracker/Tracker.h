@@ -128,14 +128,11 @@ private:
     /**
        antenna control channels
     */
-<<<<<<< HEAD
-    RC_Channel channel_yaw{CH_YAW};
-    RC_Channel channel_pitch{CH_PITCH};
-    RC_Channel_aux channel_mode{CH_MODE};
-=======
+    //RC_Channel channel_yaw{CH_YAW};
+    //RC_Channel channel_pitch{CH_PITCH};
+    //RC_Channel_aux channel_mode{CH_MODE};
     RC_Channels rc_channels;
     SRV_Channels servo_channels;
->>>>>>> refs/remotes/ArduPilot/master
 
     LowPassFilterFloat yaw_servo_out_filt;
     LowPassFilterFloat pitch_servo_out_filt;
