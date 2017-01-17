@@ -186,7 +186,8 @@ void Tracker::disarm_servos()
 	if ((enum ServoType)g.servo_yaw_type.get() == SERVO_TYPE_CR) {
         SRV_Channels::set_output_pwm(SRV_Channel::k_tracker_yaw, RC_Channels::rc_channel(CH_YAW)->get_radio_trim());
         SRV_Channels::constrain_pwm(SRV_Channel::k_tracker_yaw);
-	} 
+	}
+
     hal.util->set_soft_armed(false);
 }
 
