@@ -314,7 +314,8 @@ public:
     }
 
     // the expected lag (in seconds) in the position and velocity readings from the gps
-    float get_lag() const { return 0.2f; }
+    float get_lag(uint8_t instance) const;
+    float get_lag(void) const { return get_lag(primary_instance); }
 
     // return a 3D vector defining the offset of the GPS antenna in meters relative to the body frame origin
     const Vector3f &get_antenna_offset(uint8_t instance) const {
@@ -353,6 +354,7 @@ public:
     AP_Int8 _save_config;
     AP_Int8 _auto_config;
     AP_Vector3f _antenna_offset[2];
+    AP_Int16 _delay_ms[2];
 
     // handle sending of initialisation strings to the GPS
     void send_blob_start(uint8_t instance, const char *_blob, uint16_t size);
@@ -376,6 +378,11 @@ public:
     uint8_t first_unconfigured_gps(void) const;
     void broadcast_first_configuration_failure_reason(void) const;
 
+    // return true if all GPS instances have finished configuration
+    bool all_configured(void) const {
+        return first_unconfigured_gps() == GPS_ALL_CONFIGURED;
+    }
+    
 private:
     struct GPS_timing {
         // the time we got our last fix in system milliseconds
