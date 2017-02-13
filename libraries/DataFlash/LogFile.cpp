@@ -29,7 +29,6 @@ void DataFlash_Class::Init(const struct LogStructure *structures, uint8_t num_ty
     _num_types = num_types;
     _structures = structures;
 
-    ;
 #if defined(HAL_BOARD_LOG_DIRECTORY)
     if (_params.backend_types == DATAFLASH_BACKEND_FILE ||
         _params.backend_types == DATAFLASH_BACKEND_BOTH) {
@@ -1108,15 +1107,17 @@ void DataFlash_Class::Log_Write_POS(AP_AHRS &ahrs)
     if (!ahrs.get_position(loc)) {
         return;
     }
-    Vector3f pos;
-    ahrs.get_relative_position_NED(pos);
+    float home, origin;
+    ahrs.get_relative_position_D_home(home);
+    ahrs.get_relative_position_D_origin(origin);
     struct log_POS pkt = {
         LOG_PACKET_HEADER_INIT(LOG_POS_MSG),
-        time_us : AP_HAL::micros64(),
-        lat     : loc.lat,
-        lng     : loc.lng,
-        alt     : loc.alt*1.0e-2f,
-        rel_alt : -pos.z
+        time_us        : AP_HAL::micros64(),
+        lat            : loc.lat,
+        lng            : loc.lng,
+        alt            : loc.alt*1.0e-2f,
+        rel_home_alt   : -home,
+        rel_origin_alt : -origin
     };
     WriteBlock(&pkt, sizeof(pkt));
 }
