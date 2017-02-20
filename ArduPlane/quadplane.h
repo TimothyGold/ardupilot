@@ -74,6 +74,18 @@ public:
 
     // see if we are flying from vtol point of view
     bool is_flying_vtol(void);
+
+    // return true when tailsitter frame configured
+    bool is_tailsitter(void);
+
+    // return true when flying a tailsitter in VTOL
+    bool tailsitter_active(void);
+    
+    // create outputs for tailsitters
+    void tailsitter_output(void);
+
+    // check if we have completed transition
+    bool tailsitter_transition_complete(void);
     
     struct PACKED log_QControl_Tuning {
         LOG_PACKET_HEADER;
@@ -249,6 +261,7 @@ private:
     enum {
         TRANSITION_AIRSPEED_WAIT,
         TRANSITION_TIMER,
+        TRANSITION_ANGLE_WAIT,
         TRANSITION_DONE
     } transition_state;
 
@@ -313,6 +326,14 @@ private:
         float current_throttle;
         bool motors_active:1;
     } tilt;
+
+    // tailsitter control variables
+    struct {
+        AP_Int8 transition_angle;
+    } tailsitter;
+
+    // the attitude view of the VTOL attitude controller
+    AP_AHRS_View *ahrs_view;
 
     // time when motors were last active
     uint32_t last_motors_active_ms;
