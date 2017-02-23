@@ -173,27 +173,6 @@ void Tracker::arm_servos()
 
 void Tracker::disarm_servos()
 {
-    if ((enum ServoType)g.servo_pitch_type.get() == SERVO_TYPE_CR) {
-	    //Pitch control is stopped
-	    if (!pitch_lock) {
-            //Check measured pitch angle of ahrs
-	        float ahrs_pitch = degrees(ahrs.pitch);
-
-		    pitch_lock_angle = ahrs_pitch;
-		    pitch_lock = true;
-	    }
-
-		if (pitch_lock) {
-            float pitch = pitch_lock_angle + g.pitch_trim;
-			update_pitch_servo(pitch);
-		}
-    }
-
-	if ((enum ServoType)g.servo_yaw_type.get() == SERVO_TYPE_CR) {
-        SRV_Channels::set_output_pwm(SRV_Channel::k_tracker_yaw, RC_Channels::rc_channel(CH_YAW)->get_radio_trim());
-        SRV_Channels::constrain_pwm(SRV_Channel::k_tracker_yaw);
-	}
-
     hal.util->set_soft_armed(false);
 }
 

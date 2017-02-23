@@ -226,6 +226,7 @@ private:
     void gcs_retry_deferred(void);
     void load_parameters(void);
     void update_auto(void);
+    void update_stop(void);
     void calc_pitch_angle_error(float pitch);
     void calc_yaw_angle_error(float yaw);
     void update_manual(void);

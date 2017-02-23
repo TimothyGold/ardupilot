@@ -63,6 +63,9 @@
     <ClCompile Include="events.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="control_stop.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="APM_Config.h">
