@@ -139,7 +139,7 @@ void Tracker::update_tracking(void)
 
     case SERVO_TEST:
     case STOP:
-        update_stop;
+        update_stop();
 	    break;
     case INITIALISING:
         update_initialising();
