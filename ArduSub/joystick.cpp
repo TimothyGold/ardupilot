@@ -268,7 +268,7 @@ void Sub::handle_jsbutton_press(uint8_t button, bool shift, bool held)
             } else {
                 gain = 1.0f;
             }
-            gcs_send_text_fmt(MAV_SEVERITY_INFO,"#Gain: %2.0f%%",gain*100);
+            gcs_send_text_fmt(MAV_SEVERITY_INFO,"#Gain: %2.0f%%",(double)gain*100);
         }
         break;
     case JSButton::button_function_t::k_gain_inc:
@@ -284,7 +284,7 @@ void Sub::handle_jsbutton_press(uint8_t button, bool shift, bool held)
                 gain = constrain_float(gain + (g.maxGain-g.minGain)/(g.numGainSettings-1), g.minGain, g.maxGain);
             }
 
-            gcs_send_text_fmt(MAV_SEVERITY_INFO,"#Gain is %2.0f%%",gain*100);
+            gcs_send_text_fmt(MAV_SEVERITY_INFO,"#Gain is %2.0f%%",(double)gain*100);
         }
         break;
     case JSButton::button_function_t::k_gain_dec:
@@ -300,7 +300,7 @@ void Sub::handle_jsbutton_press(uint8_t button, bool shift, bool held)
                 gain = constrain_float(gain - (g.maxGain-g.minGain)/(g.numGainSettings-1), g.minGain, g.maxGain);
             }
 
-            gcs_send_text_fmt(MAV_SEVERITY_INFO,"#Gain is %2.0f%%",gain*100);
+            gcs_send_text_fmt(MAV_SEVERITY_INFO,"#Gain is %2.0f%%",(double)gain*100);
         }
         break;
     case JSButton::button_function_t::k_trim_roll_inc:
@@ -324,22 +324,26 @@ void Sub::handle_jsbutton_press(uint8_t button, bool shift, bool held)
         }
         break;
     case JSButton::button_function_t::k_relay_1_on:
-        // Not implemented
+        relay.on(0);
         break;
     case JSButton::button_function_t::k_relay_1_off:
-        // Not implemented
+        relay.off(0);
         break;
     case JSButton::button_function_t::k_relay_1_toggle:
-        // Not implemented
+        if (!held) {
+            relay.toggle(0);
+        }
         break;
     case JSButton::button_function_t::k_relay_2_on:
-        // Not implemented
+        relay.on(1);
         break;
     case JSButton::button_function_t::k_relay_2_off:
-        // Not implemented
+        relay.off(1);
         break;
     case JSButton::button_function_t::k_relay_2_toggle:
-        // Not implemented
+        if (!held) {
+            relay.toggle(1);
+        }
         break;
     case JSButton::button_function_t::k_custom_1:
         // Not implemented
