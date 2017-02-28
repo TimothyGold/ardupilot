@@ -270,14 +270,14 @@ const AP_Param::GroupInfo QuadPlane::var_info[] = {
     // @User: Standard
     AP_GROUPINFO("TILT_MASK", 37, QuadPlane, tilt.tilt_mask, 0),
 
-    // @Param: TILT_RATE
-    // @DisplayName: Tiltrotor tilt rate
-    // @Description: This is the maximum speed at which the motor angle will change for a tiltrotor
+    // @Param: TILT_RATE_UP
+    // @DisplayName: Tiltrotor upwards tilt rate
+    // @Description: This is the maximum speed at which the motor angle will change for a tiltrotor when moving from forward flight to hover
     // @Units: degrees/second
     // @Increment: 1
     // @Range: 10 300
     // @User: Standard
-    AP_GROUPINFO("TILT_RATE", 38, QuadPlane, tilt.max_rate_dps, 40),
+    AP_GROUPINFO("TILT_RATE_UP", 38, QuadPlane, tilt.max_rate_up_dps, 40),
 
     // @Param: TILT_MAX
     // @DisplayName: Tiltrotor maximum VTOL angle
@@ -334,11 +334,38 @@ const AP_Param::GroupInfo QuadPlane::var_info[] = {
     // @Values: 0:Continuous,1:Binary
     AP_GROUPINFO("TILT_TYPE", 47, QuadPlane, tilt.tilt_type, TILT_TYPE_CONTINUOUS),
 
-    // @Param: Q_TAILSIT_ANGLE
+    // @Param: TAILSIT_ANGLE
     // @DisplayName: Tailsitter transition angle
     // @Description: This is the angle at which tailsitter aircraft will change from VTOL control to fixed wing control.
     // @Range: 5 80
     AP_GROUPINFO("TAILSIT_ANGLE", 48, QuadPlane, tailsitter.transition_angle, 30),
+
+    // @Param: TILT_RATE_DN
+    // @DisplayName: Tiltrotor downwards tilt rate
+    // @Description: This is the maximum speed at which the motor angle will change for a tiltrotor when moving from hover to forward flight. When this is zero the Q_TILT_RATE_UP value is used.
+    // @Units: degrees/second
+    // @Increment: 1
+    // @Range: 10 300
+    // @User: Standard
+    AP_GROUPINFO("TILT_RATE_DN", 49, QuadPlane, tilt.max_rate_down_dps, 0),
+        
+    // @Param: TAILSIT_INPUT
+    // @DisplayName: Tailsitter input type
+    // @Description: This controls whether stick input when hovering as a tailsitter follows the conventions for fixed wing hovering or multicopter hovering. When multicopter input is selected the roll stick will roll the aircraft in earth frame and yaw stick will yaw in earth frame. When using fixed wing input the roll and yaw sticks will control the aircraft in body frame.
+    // @Values: 0:MultiCopterInput,1:FixedWingInput
+    AP_GROUPINFO("TAILSIT_INPUT", 50, QuadPlane, tailsitter.input_type, TAILSITTER_INPUT_MULTICOPTER),
+
+    // @Param: TAILSIT_MASK
+    // @DisplayName: Tailsitter input mask
+    // @Description: This controls what channels have full manual control when hovering as a tailsitter and the Q_TAILSIT_MASKCH channel in high. This can be used to teach yourself to prop-hang a 3D plane by learning one or more channels at a time.
+    // @Bitmask: 0:Aileron,1:Elevator,2:Throttle,3:Rudder
+    AP_GROUPINFO("TAILSIT_MASK", 51, QuadPlane, tailsitter.input_mask, 0),
+
+    // @Param: TAILSIT_MASKCH
+    // @DisplayName: Tailsitter input mask channel
+    // @Description: This controls what input channel will activate the Q_TAILSIT_MASK mask. When this channel goes above 1700 then the pilot will have direct manual control of the output channels specified in Q_TAILSIT_MASK. Set to zero to disable.
+    // @Values: 0:Disabled,1:Channel1,2:Channel2,3:Channel3,4:Channel4,5:Channel5,6:Channel6,7:Channel7,8:Channel8
+    AP_GROUPINFO("TAILSIT_MASKCH", 52, QuadPlane, tailsitter.input_mask_chan, 0),
     
     AP_GROUPEND
 };
@@ -842,7 +869,7 @@ float QuadPlane::get_pilot_input_yaw_rate_cds(void)
     }
 
     // add in rudder input
-    return plane.channel_rudder->norm_input() * 100 * yaw_rate_max;
+    return plane.channel_rudder->get_control_in() * yaw_rate_max / 45;
 }
 
 /*
@@ -1091,6 +1118,15 @@ void QuadPlane::update_transition(void)
         run_rate_controller();
         motors_output();
         last_throttle = motors->get_throttle();
+
+        // reset integrators while we are below target airspeed as we
+        // may build up too much while still primarily under
+        // multicopter control
+        plane.pitchController.reset_I();
+        plane.rollController.reset_I();
+
+        // give full authority to attitude control
+        attitude_control->set_throttle_mix_max();
         break;
     }
         
@@ -1103,7 +1139,14 @@ void QuadPlane::update_transition(void)
             GCS_MAVLINK::send_statustext_all(MAV_SEVERITY_INFO, "Transition done");
         }
         float trans_time_ms = (float)transition_time_ms.get();
-        float throttle_scaled = last_throttle * (trans_time_ms - (millis() - transition_start_ms)) / trans_time_ms;
+        float transition_scale = (trans_time_ms - (millis() - transition_start_ms)) / trans_time_ms;
+        float throttle_scaled = last_throttle * transition_scale;
+
+        // set zero throttle mix, to give full authority to
+        // throttle. This ensures that the fixed wing controllers get
+        // a chance to learn the right integrators during the transition
+        attitude_control->set_throttle_mix_value(0.5*transition_scale);
+
         if (throttle_scaled < 0.01) {
             // ensure we don't drop all the way to zero or the motors
             // will stop stabilizing
@@ -1143,7 +1186,6 @@ void QuadPlane::update_transition(void)
  */
 void QuadPlane::run_rate_controller(void)
 {
-    attitude_control->set_throttle_mix_max();
     attitude_control->rate_controller_run();
 }
 
@@ -1166,12 +1208,15 @@ void QuadPlane::update(void)
         motor_test_output();
         return;
     }
-    
+
     if (!in_vtol_mode()) {
         update_transition();
     } else {
         assisted_flight = false;
         
+        // give full authority to attitude control
+        attitude_control->set_throttle_mix_max();
+
         // run low level rate controllers
         run_rate_controller();
 
@@ -1182,6 +1227,7 @@ void QuadPlane::update(void)
             transition_state = TRANSITION_DONE;
         } else if (is_tailsitter()) {
             transition_state = TRANSITION_ANGLE_WAIT;
+            transition_start_ms = AP_HAL::millis();
         } else {
             transition_state = TRANSITION_AIRSPEED_WAIT;
         }
