@@ -237,19 +237,16 @@ private:
             uint8_t pre_arm_check       : 1; // true if all pre-arm checks (rc, accel calibration, gps lock) have been performed
             uint8_t auto_armed          : 1; // stops auto missions from beginning until throttle is raised
             uint8_t logging_started     : 1; // true if dataflash logging has started
-            uint8_t new_radio_frame     : 1; // Set true if we have new PWM data to act on from the Radio
             uint8_t usb_connected       : 1; // true if APM is powered from USB connection
-            uint8_t rc_receiver_present : 1; // true if we have an rc receiver present (i.e. if we've ever received an update
             uint8_t compass_mot         : 1; // true if we are currently performing compassmot calibration
             uint8_t motor_test          : 1; // true if we are currently performing the motors test
             uint8_t initialised         : 1; // true once the init_ardupilot function has completed.  Extended status to GCS is not sent until this completes
-            uint8_t throttle_zero       : 1; // true if the throttle stick is at zero, debounced, determines if pilot intends shut-down when not using motor interlock
+            uint8_t throttle_zero       : 1; // true if the throttle stick is at zero
             uint8_t system_time_set     : 1; // true if the system time has been set from the GPS
             uint8_t gps_base_pos_set    : 1; // true when the gps base position has been set (used for RTK gps only)
             enum HomeState home_state   : 2; // home status (unset, set, locked)
             uint8_t using_interlock     : 1; // aux switch motor interlock function is in use
             uint8_t motor_emergency_stop: 1; // motor estop switch, shuts off motors when enabled
-            uint8_t land_repo_active    : 1; // true if the pilot is overriding the landing position
             uint8_t at_bottom           : 1; // true if we are at the bottom
             uint8_t at_surface          : 1; // true if we are at the surface
             uint8_t depth_sensor_present: 1; // true if we have an external baro connected
@@ -312,7 +309,6 @@ private:
     int32_t home_distance;
     // distance between plane and next waypoint in cm.
     uint32_t wp_distance;
-    uint8_t land_state;              // records state of land (flying to location, descending)
 
     // Auto
     AutoMode auto_mode;   // controls which auto controller is run
@@ -343,7 +339,7 @@ private:
     uint32_t loiter_time;                    // How long have we been loitering - The start time in millis
 
     // Delay the next navigation command
-    int32_t nav_delay_time_max;  // used for delaying the navigation commands (eg land,takeoff etc.)
+    int32_t nav_delay_time_max;  // used for delaying the navigation commands
     uint32_t nav_delay_time_start;
 
     // Battery Sensors
@@ -357,14 +353,10 @@ private:
     float target_rangefinder_alt;      // desired altitude in cm above the ground
     int32_t baro_alt;            // barometer altitude in cm above home
     float baro_climbrate;        // barometer climbrate in cm/s
-    LowPassFilterVector3f land_accel_ef_filter; // accelerations for land and crash detector tests
 
     // Turn counter
     int32_t quarter_turn_count;
     uint8_t last_turn_state;
-
-    // filtered pilot's throttle input used to cancel landing if throttle held high
-    LowPassFilterFloat rc_throttle_control_in_filter;
 
     // 3D Location vectors
     // Current location of the Sub (altitude is relative to home)
@@ -487,7 +479,7 @@ private:
     void perf_update(void);
     void fast_loop();
     void rc_loop();
-    void throttle_loop();
+    void fifty_hz_loop();
     void update_mount();
     void update_trigger();
     void update_batt_compass(void);
@@ -508,7 +500,6 @@ private:
     void set_simple_mode(uint8_t b);
     void set_failsafe_battery(bool b);
     void set_pre_arm_check(bool b);
-    void update_using_interlock();
     void set_motor_emergency_stop(bool b);
     float get_smoothing_gain();
     void get_pilot_desired_lean_angles(float roll_in, float pitch_in, float &roll_out, float &pitch_out, float angle_max);
@@ -586,7 +577,6 @@ private:
     bool far_from_EKF_origin(const Location& loc);
     void set_system_time_from_GPS();
     void exit_mission();
-    bool verify_land();
     bool verify_loiter_unlimited();
     bool verify_loiter_time();
     bool verify_wait_delay();
@@ -605,9 +595,6 @@ private:
     void auto_wp_start(const Location_Class& dest_loc);
     void auto_wp_run();
     void auto_spline_run();
-    void auto_land_start();
-    void auto_land_start(const Vector3f& destination);
-    void auto_land_run();
     void auto_circle_movetoedge_start(const Location_Class &circle_center, float radius_m);
     void auto_circle_start();
     void auto_circle_run();
@@ -641,7 +628,6 @@ private:
     void guided_limit_set(uint32_t timeout_ms, float alt_min_cm, float alt_max_cm, float horiz_max_cm);
     void guided_limit_init_time_and_pos();
     bool guided_limit_check();
-    float get_land_descent_speed();
     bool velhold_init(bool ignore_checks);
     void velhold_run();
     bool poshold_init(bool ignore_checks);
@@ -651,7 +637,7 @@ private:
     void stabilize_run();
     bool manual_init(bool ignore_checks);
     void manual_run();
-    void crash_check();
+    void crash_check(uint32_t dt_seconds);
     void ekf_check();
     bool ekf_over_threshold();
     void failsafe_ekf_event();
@@ -723,15 +709,12 @@ private:
     void init_rc_in();
     void init_rc_out();
     void enable_motor_output();
-    void read_radio();
     void init_joystick();
     void transform_manual_control_to_rc_override(int16_t x, int16_t y, int16_t z, int16_t r, uint16_t buttons);
     void handle_jsbutton_press(uint8_t button,bool shift=false,bool held=false);
-    void camera_tilt_smooth();
     JSButton* get_button(uint8_t index);
     void default_js_buttons(void);
     void set_throttle_zero_flag(int16_t throttle_control);
-    void radio_passthrough_to_motors();
     void init_barometer(bool save);
     void read_barometer(void);
     void init_rangefinder(void);
@@ -760,13 +743,6 @@ private:
     void print_divider(void);
     void print_enabled(bool b);
     void report_version();
-    bool check_if_auxsw_mode_used(uint8_t auxsw_mode_check);
-    bool check_duplicate_auxsw(void);
-    uint8_t read_3pos_switch(int16_t radio_in);
-    void read_aux_switches();
-    void init_aux_switches();
-    void init_aux_switch_function(int8_t ch_option, uint8_t ch_flag);
-    void do_aux_switch_function(int8_t ch_function, uint8_t ch_flag);
     void save_trim();
     void auto_trim();
     void init_ardupilot();
@@ -789,7 +765,7 @@ private:
 
     bool do_guided(const AP_Mission::Mission_Command& cmd);
     void do_nav_wp(const AP_Mission::Mission_Command& cmd);
-    void do_land(const AP_Mission::Mission_Command& cmd);
+    void do_surface(const AP_Mission::Mission_Command& cmd);
     void do_loiter_unlimited(const AP_Mission::Mission_Command& cmd);
     void do_circle(const AP_Mission::Mission_Command& cmd);
     void do_loiter_time(const AP_Mission::Mission_Command& cmd);
@@ -814,6 +790,7 @@ private:
     void do_gripper(const AP_Mission::Mission_Command& cmd);
 #endif
     bool verify_nav_wp(const AP_Mission::Mission_Command& cmd);
+    bool verify_surface(const AP_Mission::Mission_Command& cmd);
     bool verify_circle(const AP_Mission::Mission_Command& cmd);
     bool verify_spline_wp(const AP_Mission::Mission_Command& cmd);
 #if NAV_GUIDED == ENABLED
