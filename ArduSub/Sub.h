@@ -233,7 +233,6 @@ private:
     // Documentation of Globals:
     union {
         struct {
-            uint8_t simple_mode         : 2; // This is the state of simple mode : 0 = disabled ; 1 = SIMPLE ; 2 = SUPERSIMPLE
             uint8_t pre_arm_check       : 1; // true if all pre-arm checks (rc, accel calibration, gps lock) have been performed
             uint8_t auto_armed          : 1; // stops auto missions from beginning until throttle is raised
             uint8_t logging_started     : 1; // true if dataflash logging has started
@@ -318,15 +317,6 @@ private:
 
     // Circle
     bool circle_pilot_yaw_override; // true if pilot is overriding yaw
-
-    // SIMPLE Mode
-    // Used to track the orientation of the Sub for Simple mode. This value is reset at each arming
-    // or in SuperSimple mode when the Sub leaves a 20m radius from home.
-    float simple_cos_yaw;
-    float simple_sin_yaw;
-    int32_t super_simple_last_bearing;
-    float super_simple_cos_yaw;
-    float super_simple_sin_yaw;
 
     // Stores initial bearing when armed - initial simple bearing is modified in super simple mode so not suitable
     int32_t initial_armed_bearing;
@@ -420,9 +410,6 @@ private:
     // Counter of main loop executions.  Used for performance monitoring and failsafe processing
     uint16_t mainLoop_count;
 
-    // Used to exit the roll and pitch auto trim function
-    uint8_t auto_trim_counter;
-
     // Reference to the relay object
     AP_Relay relay;
 
@@ -489,15 +476,11 @@ private:
     void one_hz_loop();
     void update_GPS(void);
     void update_turn_counter();
-    void init_simple_bearing();
-    void update_simple_mode(void);
-    void update_super_simple_bearing(bool force_update);
     void read_AHRS(void);
     void update_altitude();
     void set_home_state(enum HomeState new_home_state);
     bool home_is_set();
     void set_auto_armed(bool b);
-    void set_simple_mode(uint8_t b);
     void set_failsafe_battery(bool b);
     void set_pre_arm_check(bool b);
     void set_motor_emergency_stop(bool b);
@@ -553,7 +536,6 @@ private:
     void Log_Write_Data(uint8_t id, float value);
     void Log_Write_Error(uint8_t sub_system, uint8_t error_code);
     void Log_Write_Baro(void);
-    void Log_Write_Parameter_Tuning(uint8_t param, float tuning_val, int16_t control_in, int16_t tune_low, int16_t tune_high);
     void Log_Write_Home_And_Origin();
     void Log_Sensor_Health();
     void Log_Write_GuidedTarget(uint8_t target_type, const Vector3f& pos_target, const Vector3f& vel_target);
@@ -628,8 +610,7 @@ private:
     void guided_limit_set(uint32_t timeout_ms, float alt_min_cm, float alt_max_cm, float horiz_max_cm);
     void guided_limit_init_time_and_pos();
     bool guided_limit_check();
-    bool velhold_init(bool ignore_checks);
-    void velhold_run();
+
     bool poshold_init(bool ignore_checks);
     void poshold_run();
 
@@ -642,9 +623,6 @@ private:
     bool ekf_over_threshold();
     void failsafe_ekf_event();
     void failsafe_ekf_off_event(void);
-    void esc_calibration_startup_check();
-    void esc_calibration_passthrough();
-    void esc_calibration_auto();
     bool should_disarm_on_failsafe();
     void failsafe_battery_event(void);
     void failsafe_gcs_check();
@@ -653,7 +631,6 @@ private:
     void failsafe_terrain_check();
     void failsafe_terrain_set_status(bool data_ok);
     void failsafe_terrain_on_event();
-    void update_events();
     void failsafe_enable();
     void failsafe_disable();
     void fence_check();
@@ -755,9 +732,6 @@ private:
     void check_usb_mux(void);
     bool should_log(uint32_t mask);
     void print_hit_enter();
-#if CH6_TUNE_ENABLED == ENABLED
-    void tuning();
-#endif
     void gcs_send_text_fmt(MAV_SEVERITY severity, const char *fmt, ...);
     bool start_command(const AP_Mission::Mission_Command& cmd);
     bool verify_command(const AP_Mission::Mission_Command& cmd);
@@ -766,6 +740,7 @@ private:
     bool do_guided(const AP_Mission::Mission_Command& cmd);
     void do_nav_wp(const AP_Mission::Mission_Command& cmd);
     void do_surface(const AP_Mission::Mission_Command& cmd);
+    void do_RTL(void);
     void do_loiter_unlimited(const AP_Mission::Mission_Command& cmd);
     void do_circle(const AP_Mission::Mission_Command& cmd);
     void do_loiter_time(const AP_Mission::Mission_Command& cmd);
@@ -791,6 +766,7 @@ private:
 #endif
     bool verify_nav_wp(const AP_Mission::Mission_Command& cmd);
     bool verify_surface(const AP_Mission::Mission_Command& cmd);
+    bool verify_RTL(void);
     bool verify_circle(const AP_Mission::Mission_Command& cmd);
     bool verify_spline_wp(const AP_Mission::Mission_Command& cmd);
 #if NAV_GUIDED == ENABLED

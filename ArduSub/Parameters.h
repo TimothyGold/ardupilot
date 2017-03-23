@@ -189,16 +189,14 @@ public:
         k_param_arming_check, // deprecated, remove
         k_param_angle_max,
         k_param_rangefinder_gain,
-        k_param_gps_hdop_good,
-        k_param_wp_yaw_behavior,
+        k_param_wp_yaw_behavior = 170,
         k_param_xtrack_angle_limit, // Angle limit for crosstrack correction in Auto modes (degrees)
         k_param_pilot_velocity_z_max,
         k_param_pilot_accel_z,
         k_param_compass_enabled,
         k_param_surface_depth,
         k_param_rc_speed, // Main output pwm frequency
-        k_param_esc_calibrate, // Boot-time ESC calibration behavior
-        k_param_gcs_pid_mask,
+        k_param_gcs_pid_mask = 178,
         k_param_throttle_filt,
         k_param_throttle_deadzone, // Used in auto-throttle modes
         k_param_disarm_delay,
@@ -222,10 +220,7 @@ public:
         // RC_Mapper Library
         k_param_rcmap, // Disabled
 
-        // CH6 Tuning
-        k_param_radio_tuning, // Disabled
-        k_param_radio_tuning_high, // Disabled
-        k_param_radio_tuning_low, // Disabled
+        k_param_cam_slew_limit = 237,
 
     };
 
@@ -258,8 +253,6 @@ public:
 
     AP_Int8         xtrack_angle_limit;
 
-    AP_Int16        gps_hdop_good;              // GPS Hdop value at or below this value represent a good position
-
     AP_Int8         compass_enabled;
 
     AP_Int8         wp_yaw_behavior;            // controls how the autopilot controls yaw during missions
@@ -286,12 +279,6 @@ public:
     // Misc
     //
     AP_Int32        log_bitmask;
-    AP_Int8         esc_calibrate;
-#if CH6_TUNE_ENABLED == ENABLED
-    AP_Int8         radio_tuning;
-    AP_Int16        radio_tuning_high;
-    AP_Int16        radio_tuning_low;
-#endif
 
     AP_Int8         disarm_delay;
 
@@ -352,6 +339,7 @@ public:
     AP_Float                surface_depth;
     AP_Int8                 frame_configuration;
 
+    AP_Float cam_slew_limit;
     // Note: keep initializers here in the same order as they are declared
     // above.
     Parameters() :
