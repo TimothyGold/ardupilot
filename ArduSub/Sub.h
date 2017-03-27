@@ -279,6 +279,7 @@ private:
         uint8_t leak                 : 1; // true if leak recently detected
         uint8_t internal_pressure    : 1; // true if internal pressure is over threshold
         uint8_t internal_temperature : 1; // true if temperature is over threshold
+        uint8_t crash                : 1; // true if we are crashed
         uint32_t last_leak_warn_ms;      // last time a leak warning was sent to gcs
         uint32_t last_gcs_warn_ms;
 
@@ -286,6 +287,8 @@ private:
         uint32_t last_manual_control_ms; // last time MANUAL_CONTROL message arrived from GCS
         uint32_t terrain_first_failure_ms;  // the first time terrain data access failed - used to calculate the duration of the failure
         uint32_t terrain_last_failure_ms;   // the most recent time terrain data access failed
+        uint32_t last_battery_warn_ms; // last time a battery failsafe warning was sent to gcs
+        uint32_t last_crash_warn_ms; // last time a crash warning was sent to gcs
     } failsafe;
 
     // sensor health for logging
@@ -481,7 +484,6 @@ private:
     void set_home_state(enum HomeState new_home_state);
     bool home_is_set();
     void set_auto_armed(bool b);
-    void set_failsafe_battery(bool b);
     void set_pre_arm_check(bool b);
     void set_motor_emergency_stop(bool b);
     float get_smoothing_gain();
@@ -618,13 +620,13 @@ private:
     void stabilize_run();
     bool manual_init(bool ignore_checks);
     void manual_run();
-    void crash_check(uint32_t dt_seconds);
+    void failsafe_crash_check();
     void ekf_check();
     bool ekf_over_threshold();
     void failsafe_ekf_event();
     void failsafe_ekf_off_event(void);
     bool should_disarm_on_failsafe();
-    void failsafe_battery_event(void);
+    void failsafe_battery_check(void);
     void failsafe_gcs_check();
     void failsafe_manual_control_check(void);
     void set_neutral_controls(void);
@@ -656,11 +658,9 @@ private:
     bool mavlink_motor_test_check(mavlink_channel_t chan, bool check_rc);
     uint8_t mavlink_motor_test_start(mavlink_channel_t chan, uint8_t motor_seq, uint8_t throttle_type, uint16_t throttle_value, float timeout_sec);
     void motor_test_stop();
-    void auto_disarm_check();
     bool init_arm_motors(bool arming_from_gcs);
     void init_disarm_motors();
     void motors_output();
-    void lost_vehicle_check();
     void run_nav_updates(void);
     void calc_position();
     void calc_distance_and_bearing();
@@ -782,7 +782,7 @@ private:
     void dataflash_periodic(void);
     void accel_cal_update(void);
 
-    void set_leak_status(bool status);
+    void failsafe_leak_check();
     void failsafe_internal_pressure_check();
     void failsafe_internal_temperature_check();
 

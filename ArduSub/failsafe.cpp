@@ -1,37 +1,31 @@
 #include "Sub.h"
 
-//
-//  failsafe support
-//  Andrew Tridgell, December 2011
-//
-//  our failsafe strategy is to detect main loop lockup and disarm the motors
-//
+/*
+ * failsafe.cpp
+ * Failsafe checks and actions
+ */
 
 static bool failsafe_enabled = false;
 static uint16_t failsafe_last_mainLoop_count;
 static uint32_t failsafe_last_timestamp;
 static bool in_failsafe;
 
-//
-// failsafe_enable - enable failsafe
-//
+// Enable mainloop lockup failsafe
 void Sub::failsafe_enable()
 {
     failsafe_enabled = true;
     failsafe_last_timestamp = micros();
 }
 
-//
-// failsafe_disable - used when we know we are going to delay the mainloop significantly
-//
+// Disable mainloop lockup failsafe
+// Used when we know we are going to delay the mainloop significantly.
 void Sub::failsafe_disable()
 {
     failsafe_enabled = false;
 }
 
-//
-//  failsafe_check - this function is called from the core timer interrupt at 1kHz.
-//
+// This function is called from the core timer interrupt at 1kHz.
+// This checks that the mainloop is running, and has not locked up.
 void Sub::failsafe_check()
 {
     uint32_t tnow = AP_HAL::micros();
@@ -70,35 +64,54 @@ void Sub::failsafe_check()
     }
 }
 
-void Sub::failsafe_battery_event(void)
+// Battery failsafe check
+// Check the battery voltage and remaining capacity
+void Sub::failsafe_battery_check(void)
 {
-    //    // return immediately if low battery event has already been triggered
-    //    if (failsafe.battery) {
-    //        return;
-    //    }
-    //
-    //    // failsafe check
-    //  if (g.failsafe_battery_enabled != FS_BATT_DISABLED && motors.armed()) {
-    //      if (should_disarm_on_failsafe()) {
-    //          init_disarm_motors();
-    //      } else {
-    //          if (g.failsafe_battery_enabled == FS_BATT_RTL || control_mode == AUTO) {
-    //              set_mode_RTL_or_land_with_pause(MODE_REASON_BATTERY_FAILSAFE);
-    //          } else {
-    //              set_mode_land_with_pause(MODE_REASON_BATTERY_FAILSAFE);
-    //          }
-    //      }
-    //  }
-    //
-    //    // set the low battery flag
-    //    set_failsafe_battery(true);
-    //
-    //    // warn the ground station and log to dataflash
-    //    gcs_send_text(MAV_SEVERITY_WARNING,"Low battery");
-    //    Log_Write_Error(ERROR_SUBSYSTEM_FAILSAFE_BATT, ERROR_CODE_FAILSAFE_OCCURRED);
+    // Do nothing if the failsafe is disabled, or if we are disarmed
+    if (g.failsafe_battery_enabled == FS_BATT_DISABLED || !motors.armed()) {
+        failsafe.battery = false;
+        AP_Notify::flags.failsafe_battery = false;
+        return; // Failsafe disabled, nothing to do
+    }
 
+    if (!battery.exhausted(g.fs_batt_voltage, g.fs_batt_mah)) {
+        failsafe.battery = false;
+        AP_Notify::flags.failsafe_battery = false;
+        return; // Battery is doing well
+    }
+
+    // Always warn when failsafe condition is met
+    if (AP_HAL::millis() > failsafe.last_battery_warn_ms + 20000) {
+        failsafe.last_battery_warn_ms = AP_HAL::millis();
+        gcs_send_text(MAV_SEVERITY_WARNING, "Low battery");
+    }
+
+    // Don't do anything if failsafe has already been set
+    if (failsafe.battery) {
+        return;
+    }
+
+    failsafe.battery = true;
+    AP_Notify::flags.failsafe_battery = true;
+
+    // Log failsafe
+    Log_Write_Error(ERROR_SUBSYSTEM_FAILSAFE_BATT, ERROR_CODE_FAILSAFE_OCCURRED);
+
+    switch(g.failsafe_battery_enabled) {
+    case FS_BATT_SURFACE:
+        set_mode(SURFACE, MODE_REASON_BATTERY_FAILSAFE);
+        break;
+    case FS_BATT_DISARM:
+        init_disarm_motors();
+        break;
+    default:
+        break;
+    }
 }
 
+// MANUAL_CONTROL failsafe check
+// Make sure that we are receiving MANUAL_CONTROL at an appropriate interval
 void Sub::failsafe_manual_control_check()
 {
 #if CONFIG_HAL_BOARD != HAL_BOARD_SITL
@@ -120,6 +133,9 @@ void Sub::failsafe_manual_control_check()
 #endif
 }
 
+// Internal pressure failsafe check
+// Check if the internal pressure of the watertight electronics enclosure
+// has exceeded the maximum specified by the FS_PRESS_MAX parameter
 void Sub::failsafe_internal_pressure_check()
 {
 
@@ -149,6 +165,9 @@ void Sub::failsafe_internal_pressure_check()
     }
 }
 
+// Internal temperature failsafe check
+// Check if the internal temperature of the watertight electronics enclosure
+// has exceeded the maximum specified by the FS_TEMP_MAX parameter
 void Sub::failsafe_internal_temperature_check()
 {
 
@@ -178,8 +197,11 @@ void Sub::failsafe_internal_temperature_check()
     }
 }
 
-void Sub::set_leak_status(bool status)
+// Check if we are leaking and perform appropiate action
+void Sub::failsafe_leak_check()
 {
+    bool status = leak_detector.get_status();
+
     AP_Notify::flags.leak_detected = status;
 
     // Do nothing if we are dry, or if leak failsafe action is disabled
@@ -262,6 +284,65 @@ void Sub::failsafe_gcs_check()
         set_mode(ALT_HOLD, MODE_REASON_GCS_FAILSAFE);
     } else if (g.failsafe_gcs == FS_GCS_SURFACE && motors.armed()) {
         set_mode(SURFACE, MODE_REASON_GCS_FAILSAFE);
+    }
+}
+
+#define CRASH_CHECK_TRIGGER_MS          2000    // 2 seconds inverted indicates a crash
+#define CRASH_CHECK_ANGLE_DEVIATION_DEG 30.0f   // 30 degrees beyond angle max is signal we are inverted
+
+// Check for a crash
+// The vehicle is considered crashed if the angle error exceeds a specified limit for more than 2 seconds
+void Sub::failsafe_crash_check()
+{
+    static uint32_t last_crash_check_pass_ms;
+    uint32_t tnow = AP_HAL::millis();
+
+    // return immediately if disarmed, or crash checking disabled
+    if (!motors.armed() || g.fs_crash_check == FS_CRASH_DISABLED) {
+        last_crash_check_pass_ms = tnow;
+        failsafe.crash = false;
+        return;
+    }
+
+    // return immediately if we are not in an angle stabilized flight mode
+    if (control_mode == ACRO || control_mode == MANUAL) {
+        last_crash_check_pass_ms = tnow;
+        failsafe.crash = false;
+        return;
+    }
+
+    // check for angle error over 30 degrees
+    const float angle_error = attitude_control.get_att_error_angle_deg();
+    if (angle_error <= CRASH_CHECK_ANGLE_DEVIATION_DEG) {
+        last_crash_check_pass_ms = tnow;
+        failsafe.crash = false;
+        return;
+    }
+
+    if (tnow < last_crash_check_pass_ms + CRASH_CHECK_TRIGGER_MS) {
+        return;
+    }
+
+    // Conditions met, we are in failsafe
+
+    // Send warning to GCS
+    if (tnow > failsafe.last_crash_warn_ms + 20000) {
+        failsafe.last_crash_warn_ms = tnow;
+        gcs_send_text(MAV_SEVERITY_WARNING,"Crash detected");
+    }
+
+    // Only perform failsafe action once
+    if (failsafe.crash) {
+        return;
+    }
+
+    failsafe.crash = true;
+    // log an error in the dataflash
+    Log_Write_Error(ERROR_SUBSYSTEM_CRASH_CHECK, ERROR_CODE_CRASH_CHECK_CRASH);
+
+    // disarm motors
+    if (g.fs_crash_check == FS_CRASH_DISARM) {
+        init_disarm_motors();
     }
 }
 
@@ -364,4 +445,3 @@ bool Sub::should_disarm_on_failsafe()
         break;
     }
 }
-

@@ -31,7 +31,6 @@ const AP_Scheduler::Task Sub::scheduler_tasks[] = {
     SCHED_TASK(update_optical_flow,  200,    160),
 #endif
     SCHED_TASK(update_batt_compass,   10,    120),
-    SCHED_TASK(auto_disarm_check,     10,     50),
     SCHED_TASK(read_rangefinder,      20,    100),
     SCHED_TASK(update_altitude,       10,    100),
     SCHED_TASK(run_nav_updates,       50,    100),
@@ -42,7 +41,6 @@ const AP_Scheduler::Task Sub::scheduler_tasks[] = {
     SCHED_TASK(update_notify,         50,     90),
     SCHED_TASK(one_hz_loop,            1,    100),
     SCHED_TASK(ekf_check,             10,     75),
-    SCHED_TASK(lost_vehicle_check,    10,     50),
     SCHED_TASK(gcs_check_input,      400,    180),
     SCHED_TASK(gcs_send_heartbeat,     1,    110),
     SCHED_TASK(gcs_send_deferred,     50,    550),
@@ -187,8 +185,6 @@ void Sub::fast_loop()
     // check if ekf has reset target heading
     check_ekf_yaw_reset();
 
-    crash_check(MAIN_LOOP_SECONDS);
-
     // run the attitude controllers
     update_flight_mode();
 
@@ -217,6 +213,8 @@ void Sub::fifty_hz_loop()
 
     // check pilot input failsafe
     failsafe_manual_control_check();
+
+    failsafe_crash_check();
 
     // Update servo output
     RC_Channels::set_pwm_all();
@@ -345,7 +343,9 @@ void Sub::dataflash_periodic(void)
 // three_hz_loop - 3.3hz loop
 void Sub::three_hz_loop()
 {
-    set_leak_status(leak_detector.update());
+    leak_detector.update();
+
+    failsafe_leak_check();
 
     failsafe_internal_pressure_check();
 
