@@ -68,8 +68,7 @@ public:
         k_param_DataFlash, // DataFlash Logging
         k_param_serial_manager, // Serial ports, AP_SerialManager
         k_param_notify, // Notify Library, AP_Notify
-        k_param_cli_enabled, // Old (deprecated) command line interface
-        k_param_arming, // Arming checks
+        k_param_arming = 26, // Arming checks
 
 
         // Sensor objects
@@ -149,23 +148,12 @@ public:
         k_param_jbtn_15,
 
 
-        // Flight mode selection
-        k_param_flight_mode1 = 120,
-        k_param_flight_mode2,
-        k_param_flight_mode3,
-        k_param_flight_mode4,
-        k_param_flight_mode5,
-        k_param_flight_mode6,
-
-
         // PID Controllers
-        k_param_p_pos_xy,
+        k_param_p_pos_xy = 126,
         k_param_p_alt_hold,
         k_param_pi_vel_xy,
         k_param_p_vel_z,
         k_param_pid_accel_z,
-        k_param_pid_crosstrack_control, // Experimental
-        k_param_pid_heading_control, // Experimental
 
 
         // Failsafes
@@ -186,8 +174,7 @@ public:
 
         // Misc Sub settings
         k_param_log_bitmask = 165,
-        k_param_arming_check, // deprecated, remove
-        k_param_angle_max,
+        k_param_angle_max = 167,
         k_param_rangefinder_gain,
         k_param_wp_yaw_behavior = 170,
         k_param_xtrack_angle_limit, // Angle limit for crosstrack correction in Auto modes (degrees)
@@ -230,9 +217,6 @@ public:
     //
     AP_Int16        sysid_this_mav;
     AP_Int16        sysid_my_gcs;
-#if CLI_ENABLED == ENABLED
-    AP_Int8         cli_enabled;
-#endif
 
     AP_Float        throttle_filt;
 
@@ -265,15 +249,6 @@ public:
     // Throttle
     //
     AP_Int16        throttle_deadzone;
-
-    // Flight modes
-    //
-    AP_Int8         flight_mode1;
-    AP_Int8         flight_mode2;
-    AP_Int8         flight_mode3;
-    AP_Int8         flight_mode4;
-    AP_Int8         flight_mode5;
-    AP_Int8         flight_mode6;
 
     // Misc
     //
@@ -367,9 +342,6 @@ public:
 
     // var_info for holding Parameter information
     static const struct AP_Param::GroupInfo var_info[];
-
-    // altitude at which nav control can start in takeoff
-    AP_Float wp_navalt_min;
 
 #if GRIPPER_ENABLED
     AP_Gripper gripper;

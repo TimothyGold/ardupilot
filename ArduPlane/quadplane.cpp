@@ -370,10 +370,15 @@ const AP_Param::GroupInfo QuadPlane::var_info[] = {
     AP_GROUPEND
 };
 
-static const struct {
+struct defaults_struct {
     const char *name;
     float value;
-} defaults_table[] = {
+};
+
+/*
+  defaults for all quadplanes
+ */
+static const struct defaults_struct defaults_table[] = {
     { "Q_A_RAT_RLL_P",    0.25 },
     { "Q_A_RAT_RLL_I",    0.25 },
     { "Q_A_RAT_RLL_FILT", 10.0 },
@@ -381,6 +386,19 @@ static const struct {
     { "Q_A_RAT_PIT_I",    0.25 },
     { "Q_A_RAT_PIT_FILT", 10.0 },
     { "Q_M_SPOOL_TIME",   0.25 },
+};
+
+/*
+  extra defaults for tailsitters
+ */
+static const struct defaults_struct defaults_table_tailsitter[] = {
+    { "KFF_RDDRMIX",       0.02 },
+    { "Q_A_RAT_PIT_FF",    0.2 },
+    { "Q_A_RAT_YAW_FF",    0.2 },
+    { "Q_A_RAT_YAW_I",    0.18 },
+    { "LIM_PITCH_MAX",    3000 },
+    { "LIM_PITCH_MIN",    -3000 },
+    { "MIXING_GAIN",      1.0 },
 };
 
 QuadPlane::QuadPlane(AP_AHRS_NavEKF &_ahrs) :
@@ -568,18 +586,32 @@ failed:
 }
 
 /*
+  setup default parameters from a defaults_struct table
+ */
+void QuadPlane::setup_defaults_table(const struct defaults_struct *table, uint8_t count)
+{
+    for (uint8_t i=0; i<count; i++) {
+        if (!AP_Param::set_default_by_name(table[i].name, table[i].value)) {
+            GCS_MAVLINK::send_statustext_all(MAV_SEVERITY_INFO, "QuadPlane setup failure for %s",
+                                             table[i].name);
+            AP_HAL::panic("quadplane bad default %s", table[i].name);
+        }
+    }
+}
+
+/*
   setup default parameters from defaults_table
  */
 void QuadPlane::setup_defaults(void)
 {
-    for (uint8_t i=0; i<ARRAY_SIZE(defaults_table); i++) {
-        if (!AP_Param::set_default_by_name(defaults_table[i].name, defaults_table[i].value)) {
-            GCS_MAVLINK::send_statustext_all(MAV_SEVERITY_INFO, "QuadPlane setup failure for %s",
-                                             defaults_table[i].name);
-            AP_HAL::panic("quadplane bad default %s", defaults_table[i].name);
-        }
-    }
+    setup_defaults_table(defaults_table, ARRAY_SIZE(defaults_table));
 
+    enum AP_Motors::motor_frame_class motor_class;
+    motor_class = (enum AP_Motors::motor_frame_class)frame_class.get();
+    if (motor_class == AP_Motors::MOTOR_FRAME_TAILSITTER) {
+        setup_defaults_table(defaults_table_tailsitter, ARRAY_SIZE(defaults_table_tailsitter));
+    }
+    
     // reset ESC calibration
     if (esc_calibration != 0) {
         esc_calibration.set_and_save(0);
@@ -676,26 +708,9 @@ void QuadPlane::run_z_controller(void)
         // it has been two seconds since we last ran the Z
         // controller. We need to assume the integrator may be way off
 
-        // we will set the initial integrator based on airspeed. 
-        float aspeed, airspeed_threshold;
-        if (assist_speed > 0) {
-            airspeed_threshold = assist_speed;
-        } else {
-            airspeed_threshold = plane.aparm.airspeed_min;
-        }
-        if (ahrs.airspeed_estimate(&aspeed)) {
-            // starting at 5m/s below the threshold we ramp up the
-            // amount of integrator suppression until we are at full
-            // suppression of initial vertical integrator at the full
-            // transition airspeed
-            float initial_z_integrator = linear_interpolate(0, -motors->get_throttle_hover()*1000.0f,
-                                                            aspeed,
-                                                            airspeed_threshold-5,
-                                                            airspeed_threshold);
-            pid_accel_z.set_integrator(initial_z_integrator);
-        } else {
-            pid_accel_z.set_integrator(0);
-        }
+        // the base throttle we start at is the current throttle we are using
+        float base_throttle = constrain_float(motors->get_throttle() - motors->get_throttle_hover(), 0, 1) * 1000;
+        pid_accel_z.set_integrator(base_throttle);
     }
     last_pidz_active_ms = now;
     pos_control->update_z_controller();    
