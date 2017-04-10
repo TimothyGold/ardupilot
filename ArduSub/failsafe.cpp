@@ -11,7 +11,7 @@ static uint32_t failsafe_last_timestamp;
 static bool in_failsafe;
 
 // Enable mainloop lockup failsafe
-void Sub::failsafe_enable()
+void Sub::mainloop_failsafe_enable()
 {
     failsafe_enabled = true;
     failsafe_last_timestamp = micros();
@@ -19,14 +19,14 @@ void Sub::failsafe_enable()
 
 // Disable mainloop lockup failsafe
 // Used when we know we are going to delay the mainloop significantly.
-void Sub::failsafe_disable()
+void Sub::mainloop_failsafe_disable()
 {
     failsafe_enabled = false;
 }
 
 // This function is called from the core timer interrupt at 1kHz.
 // This checks that the mainloop is running, and has not locked up.
-void Sub::failsafe_check()
+void Sub::mainloop_failsafe_check()
 {
     uint32_t tnow = AP_HAL::micros();
 
@@ -422,26 +422,5 @@ void Sub::failsafe_terrain_act()
     case FS_TERRAIN_DISARM:
     default:
         init_disarm_motors();
-    }
-}
-
-bool Sub::should_disarm_on_failsafe()
-{
-    switch (control_mode) {
-    case STABILIZE:
-    case ACRO:
-        // if throttle is zero OR vehicle is landed disarm motors
-        return ap.throttle_zero;
-        break;
-    case AUTO:
-        // if mission has not started AND vehicle is landed, disarm motors
-        return !ap.auto_armed;
-        break;
-    default:
-        // used for AltHold, Guided, Loiter, RTL, Circle, Drift, Sport, Flip, PosHold
-        // if landed disarm
-        //            return ap.land_complete;
-        return false;
-        break;
     }
 }

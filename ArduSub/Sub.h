@@ -236,7 +236,6 @@ private:
             uint8_t compass_mot         : 1; // true if we are currently performing compassmot calibration
             uint8_t motor_test          : 1; // true if we are currently performing the motors test
             uint8_t initialised         : 1; // true once the init_ardupilot function has completed.  Extended status to GCS is not sent until this completes
-            uint8_t throttle_zero       : 1; // true if the throttle stick is at zero
             uint8_t system_time_set     : 1; // true if the system time has been set from the GPS
             uint8_t gps_base_pos_set    : 1; // true when the gps base position has been set (used for RTK gps only)
             enum HomeState home_state   : 2; // home status (unset, set, locked)
@@ -299,15 +298,6 @@ private:
     // Sometimes we need to remove the scaling for distance calcs
     float scaleLongDown;
 
-    // Location & Navigation
-    int32_t wp_bearing;
-    // The location of home in relation to the Sub in centi-degrees
-    int32_t home_bearing;
-    // distance between plane and home in cm
-    int32_t home_distance;
-    // distance between plane and next waypoint in cm.
-    uint32_t wp_distance;
-
     // Auto
     AutoMode auto_mode;   // controls which auto controller is run
 
@@ -317,7 +307,7 @@ private:
     // Circle
     bool circle_pilot_yaw_override; // true if pilot is overriding yaw
 
-    // Stores initial bearing when armed - initial simple bearing is modified in super simple mode so not suitable
+    // Stores initial bearing when armed
     int32_t initial_armed_bearing;
 
     // Throttle variables
@@ -502,7 +492,6 @@ private:
     void send_nav_controller_output(mavlink_channel_t chan);
     void send_simstate(mavlink_channel_t chan);
     void send_hwstatus(mavlink_channel_t chan);
-    void send_servo_out(mavlink_channel_t chan);
     void send_radio_out(mavlink_channel_t chan);
     void send_vfr_hud(mavlink_channel_t chan);
     void send_current_waypoint(mavlink_channel_t chan);
@@ -621,7 +610,6 @@ private:
     bool ekf_over_threshold();
     void failsafe_ekf_event();
     void failsafe_ekf_off_event(void);
-    bool should_disarm_on_failsafe();
     void failsafe_battery_check(void);
     void failsafe_gcs_check();
     void failsafe_manual_control_check(void);
@@ -629,8 +617,8 @@ private:
     void failsafe_terrain_check();
     void failsafe_terrain_set_status(bool data_ok);
     void failsafe_terrain_on_event();
-    void failsafe_enable();
-    void failsafe_disable();
+    void mainloop_failsafe_enable();
+    void mainloop_failsafe_disable();
     void fence_check();
     void fence_send_mavlink_status(mavlink_channel_t chan);
     bool set_mode(control_mode_t mode, mode_reason_t reason);
@@ -650,20 +638,9 @@ private:
     void set_surfaced(bool at_surface);
     void set_bottomed(bool at_bottom);
     void update_notify();
-    void motor_test_output();
-    bool mavlink_motor_test_check(mavlink_channel_t chan, bool check_rc);
-    uint8_t mavlink_motor_test_start(mavlink_channel_t chan, uint8_t motor_seq, uint8_t throttle_type, uint16_t throttle_value, float timeout_sec);
-    void motor_test_stop();
     bool init_arm_motors(bool arming_from_gcs);
     void init_disarm_motors();
     void motors_output();
-    void run_nav_updates(void);
-    void calc_position();
-    void calc_distance_and_bearing();
-    void calc_wp_distance();
-    void calc_wp_bearing();
-    void calc_home_distance_and_bearing();
-    void run_autopilot();
     void perf_info_reset();
     void perf_ignore_this_loop();
     void perf_info_check_loop_time(uint32_t time_in_micros);
@@ -674,11 +651,8 @@ private:
     uint32_t perf_info_get_num_dropped();
     Vector3f pv_location_to_vector(const Location& loc);
     float pv_alt_above_origin(float alt_above_home_cm);
-    float pv_alt_above_home(float alt_above_origin_cm);
     float pv_get_bearing_cd(const Vector3f &origin, const Vector3f &destination);
     float pv_get_horizontal_distance_cm(const Vector3f &origin, const Vector3f &destination);
-    float pv_distance_to_home_cm(const Vector3f &destination);
-    void default_dead_zones();
     void init_rc_in();
     void init_rc_out();
     void enable_motor_output();
@@ -687,7 +661,6 @@ private:
     void handle_jsbutton_press(uint8_t button,bool shift=false,bool held=false);
     JSButton* get_button(uint8_t index);
     void default_js_buttons(void);
-    void set_throttle_zero_flag(int16_t throttle_control);
     void init_barometer(bool save);
     void read_barometer(void);
     void init_rangefinder(void);
@@ -701,8 +674,6 @@ private:
     void terrain_update();
     void terrain_logging();
     bool terrain_use();
-    void save_trim();
-    void auto_trim();
     void init_ardupilot();
     void startup_INS_ground();
     bool calibrate_gyros();
@@ -780,7 +751,7 @@ private:
 
 public:
     void mavlink_delay_cb();
-    void failsafe_check();
+    void mainloop_failsafe_check();
 };
 
 extern const AP_HAL::HAL& hal;

@@ -15,20 +15,11 @@ static void mavlink_delay_cb_static()
 
 static void failsafe_check_static()
 {
-    sub.failsafe_check();
+    sub.mainloop_failsafe_check();
 }
 
 void Sub::init_ardupilot()
 {
-    if (!hal.gpio->usb_connected()) {
-        // USB is not connected, this means UART0 may be a Xbee, with
-        // its darned bricking problem. We can't write to it for at
-        // least one second after powering up. Simplest solution for
-        // now is to delay for 1 second. Something more elegant may be
-        // added later
-        hal.scheduler->delay(1000);
-    }
-
     // initialise serial port
     serial_manager.init_console();
 
@@ -135,18 +126,6 @@ void Sub::init_ardupilot()
     USERHOOK_INIT
 #endif
 
-#if HIL_MODE != HIL_MODE_DISABLED
-    while (barometer.get_last_update() == 0) {
-        // the barometer begins updating when we get the first
-        // HIL_STATE message
-        gcs_send_text(MAV_SEVERITY_WARNING, "Waiting for first HIL_STATE message");
-        hal.scheduler->delay(1000);
-    }
-
-    // set INS to HIL mode
-    ins.set_hil_mode();
-#endif
-
     // read Baro pressure at ground
     //-----------------------------
     init_barometer(false);
@@ -201,7 +180,7 @@ void Sub::init_ardupilot()
     serial_manager.set_blocking_writes_all(false);
 
     // enable CPU failsafe
-    failsafe_enable();
+    mainloop_failsafe_enable();
 
     ins.set_raw_logging(should_log(MASK_LOG_IMU_RAW));
     ins.set_dataflash(&DataFlash);
@@ -312,8 +291,8 @@ void Sub::update_auto_armed()
             set_auto_armed(false);
             return;
         }
-        // if in stabilize or acro flight mode and throttle is zero, auto-armed should become false
-        if (mode_has_manual_throttle(control_mode) && ap.throttle_zero && !failsafe.manual_control) {
+        // if in stabilize or acro flight mode auto-armed should become false
+        if (mode_has_manual_throttle(control_mode) && !failsafe.manual_control) {
             set_auto_armed(false);
         }
     } else {

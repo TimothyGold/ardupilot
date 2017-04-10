@@ -29,10 +29,6 @@ enum autopilot_yaw_mode {
     AUTO_YAW_CORRECT_XTRACK =    6   // steer the sub in order to correct for crosstrack error during line following
 };
 
-// HIL enumerations
-#define HIL_MODE_DISABLED               0
-#define HIL_MODE_SENSORS                1
-
 // Auto Pilot Modes enumeration
 enum control_mode_t {
     STABILIZE =     0,  // manual angle with manual depth/throttle
@@ -126,7 +122,6 @@ enum RTLState {
 #define LOG_DATA_FLOAT_MSG              0x18
 #define LOG_MOTBATT_MSG                 0x1E
 #define LOG_PARAMTUNE_MSG               0x1F
-#define LOG_HELI_MSG                    0x20
 #define LOG_GUIDEDTARGET_MSG            0x22
 #define LOG_PROXIMITY_MSG               0x24
 
@@ -153,15 +148,11 @@ enum RTLState {
 // DATA - event logging
 #define DATA_AP_STATE                       7
 #define DATA_SYSTEM_TIME_SET                8
-#define DATA_INIT_SIMPLE_BEARING            9
 #define DATA_ARMED                          10
 #define DATA_DISARMED                       11
 #define DATA_AUTO_ARMED                     15
 #define DATA_LOST_GPS                       19
 #define DATA_SET_HOME                       25
-#define DATA_SET_SIMPLE_ON                  26
-#define DATA_SET_SIMPLE_OFF                 27
-#define DATA_SET_SUPERSIMPLE_ON             29
 #define DATA_SAVE_TRIM                      38
 #define DATA_SAVEWP_ADD_WP                  39
 #define DATA_FENCE_ENABLE                   41

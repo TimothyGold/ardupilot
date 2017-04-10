@@ -33,7 +33,6 @@ const AP_Scheduler::Task Sub::scheduler_tasks[] = {
     SCHED_TASK(update_batt_compass,   10,    120),
     SCHED_TASK(read_rangefinder,      20,    100),
     SCHED_TASK(update_altitude,       10,    100),
-    SCHED_TASK(run_nav_updates,       50,    100),
     SCHED_TASK(three_hz_loop,          3,     75),
     SCHED_TASK(update_turn_counter,   10,     50),
     SCHED_TASK(compass_accumulate,   100,    100),
@@ -166,17 +165,20 @@ void Sub::loop()
 // Main loop - 400hz
 void Sub::fast_loop()
 {
+    // update INS immediately to get current gyro data populated
+    ins.update();
+
     if (control_mode != MANUAL) { //don't run rate controller in manual mode
         // run low level rate controllers that only require IMU data
         attitude_control.rate_controller_run();
     }
 
-    // IMU DCM Algorithm
-    // --------------------
-    read_AHRS();
-
     // send outputs to the motors library
     motors_output();
+
+    // run EKF state estimator (expensive)
+    // --------------------
+    read_AHRS();
 
     // Inertial Nav
     // --------------------
@@ -311,12 +313,6 @@ void Sub::ten_hz_logging_loop()
 // should be run at 25hz
 void Sub::twentyfive_hz_logging()
 {
-#if HIL_MODE != HIL_MODE_DISABLED
-    // HIL needs very fast update of the servo values
-    gcs_send_message(MSG_RADIO_OUT);
-#endif
-
-#if HIL_MODE == HIL_MODE_DISABLED
     if (should_log(MASK_LOG_ATTITUDE_FAST)) {
         Log_Write_Attitude();
         DataFlash.Log_Write_Rate(ahrs, motors, attitude_control, pos_control);
@@ -332,7 +328,6 @@ void Sub::twentyfive_hz_logging()
     if (should_log(MASK_LOG_IMU) && !should_log(MASK_LOG_IMU_RAW)) {
         DataFlash.Log_Write_IMU(ins);
     }
-#endif
 }
 
 void Sub::dataflash_periodic(void)
@@ -440,13 +435,9 @@ void Sub::read_AHRS(void)
 {
     // Perform IMU calculations and get attitude info
     //-----------------------------------------------
-#if HIL_MODE != HIL_MODE_DISABLED
-    // update hil before ahrs update
-    gcs_check_input();
-#endif
-
-    ahrs.update();
-    ahrs_view.update();
+    // <true> tells AHRS to skip INS update as we have already done it in fast_loop()
+    ahrs.update(true);
+    ahrs_view.update(true);
 }
 
 // read baro and rangefinder altitude at 10hz

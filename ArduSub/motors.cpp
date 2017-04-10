@@ -1,5 +1,13 @@
 #include "Sub.h"
 
+// enable_motor_output() - enable and output lowest possible value to motors
+void Sub::enable_motor_output()
+{
+    // enable motors
+    motors.enable();
+    motors.output_min();
+}
+
 // init_arm_motors - performs arming process including initialisation of barometer and gyros
 //  returns false if arming failed because of pre-arm checks, arming checks or a gyro calibration failure
 bool Sub::init_arm_motors(bool arming_from_gcs)
@@ -20,7 +28,7 @@ bool Sub::init_arm_motors(bool arming_from_gcs)
     }
 
     // disable cpu failsafe because initialising everything takes a while
-    failsafe_disable();
+    mainloop_failsafe_disable();
 
     // notify that arming will occur (we do this early to give plenty of warning)
     AP_Notify::flags.armed = true;
@@ -29,7 +37,7 @@ bool Sub::init_arm_motors(bool arming_from_gcs)
         update_notify();
     }
 
-#if HIL_MODE != HIL_MODE_DISABLED || CONFIG_HAL_BOARD == HAL_BOARD_SITL
+#if CONFIG_HAL_BOARD == HAL_BOARD_SITL
     gcs_send_text(MAV_SEVERITY_INFO, "Arming motors");
 #endif
 
@@ -45,8 +53,7 @@ bool Sub::init_arm_motors(bool arming_from_gcs)
         // Reset home position if it has already been set before (but not locked)
         set_home_to_current_location();
     }
-    calc_distance_and_bearing();
-
+	
     // enable gps velocity based centrefugal force compensation
     ahrs.set_correct_centrifugal(true);
     hal.util->set_soft_armed(true);
@@ -64,7 +71,7 @@ bool Sub::init_arm_motors(bool arming_from_gcs)
     DataFlash.Log_Write_Mode(control_mode, control_mode_reason);
 
     // reenable failsafe
-    failsafe_enable();
+    mainloop_failsafe_enable();
 
     // perf monitor ignores delay due to arming
     perf_ignore_this_loop();
@@ -84,7 +91,7 @@ void Sub::init_disarm_motors()
         return;
     }
 
-#if HIL_MODE != HIL_MODE_DISABLED || CONFIG_HAL_BOARD == HAL_BOARD_SITL
+#if CONFIG_HAL_BOARD == HAL_BOARD_SITL
     gcs_send_text(MAV_SEVERITY_INFO, "Disarming motors");
 #endif
 
@@ -122,7 +129,7 @@ void Sub::motors_output()
 {
     // check if we are performing the motor test
     if (ap.motor_test) {
-        motor_test_output();
+        return; // Placeholder
     } else {
         if (!ap.using_interlock) {
             // if not using interlock switch, set according to Emergency Stop status
