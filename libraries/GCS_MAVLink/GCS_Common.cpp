@@ -209,7 +209,8 @@ GCS_MAVLINK::queued_waypoint_send()
             chan,
             waypoint_dest_sysid,
             waypoint_dest_compid,
-            waypoint_request_i);
+            waypoint_request_i,
+            MAV_MISSION_TYPE_MISSION);
     }
 }
 
@@ -231,6 +232,32 @@ void GCS_MAVLINK::send_power_status(void)
                                   hal.analogin->board_voltage() * 1000,
                                   hal.analogin->servorail_voltage() * 1000,
                                   hal.analogin->power_status_flags());
+}
+
+void GCS_MAVLINK::send_battery_status(const AP_BattMonitor &battery, const uint8_t instance) const
+{
+    uint16_t voltages[MAVLINK_MSG_BATTERY_STATUS_FIELD_VOLTAGES_LEN];
+    memset(&voltages, 0xff, sizeof(uint16_t)*MAVLINK_MSG_BATTERY_STATUS_FIELD_VOLTAGES_LEN); // fill with UINT16_MAX for unknown cells
+    mavlink_msg_battery_status_send(chan,
+                                    instance, // id
+                                    MAV_BATTERY_FUNCTION_UNKNOWN, // function
+                                    MAV_BATTERY_TYPE_UNKNOWN, // type
+                                    INT16_MAX, // temperature. INT16_MAX if unknown
+                                    voltages,
+                                    battery.has_current(instance) ? battery.current_amps(instance) * 100 : -1, // current
+                                    battery.has_current(instance) ? battery.current_total_mah(instance) : -1, // total current
+                                    -1, // joules used
+                                    battery.capacity_remaining_pct(instance));
+}
+
+// returns true if all battery instances were reported
+bool GCS_MAVLINK::send_battery_status(const AP_BattMonitor &battery) const
+{
+    for(uint8_t i = 0; i < battery.num_instances(); i++) {
+        CHECK_PAYLOAD_SIZE(BATTERY_STATUS);
+        send_battery_status(battery, i);
+    }
+    return true;
 }
 
 // report AHRS2 state
@@ -275,7 +302,8 @@ void GCS_MAVLINK::handle_mission_request_list(AP_Mission &mission, mavlink_messa
     mavlink_msg_mission_request_list_decode(msg, &packet);
 
     // reply with number of commands in the mission.  The GCS will then request each command separately
-    mavlink_msg_mission_count_send(chan,msg->sysid, msg->compid, mission.num_commands());
+    mavlink_msg_mission_count_send(chan,msg->sysid, msg->compid, mission.num_commands(),
+                                   MAV_MISSION_TYPE_MISSION);
 
     // set variables to help handle the expected sending of commands to the GCS
     waypoint_receiving = false;             // record that we are sending commands (i.e. not receiving)
@@ -340,7 +368,8 @@ void GCS_MAVLINK::handle_mission_request(AP_Mission &mission, mavlink_message_t 
         if (packet.seq != 0 && // always allow HOME to be read
             packet.seq >= mission.num_commands()) {
             // try to educate the GCS on the actual size of the mission:
-            mavlink_msg_mission_count_send(chan,msg->sysid, msg->compid, mission.num_commands());
+            mavlink_msg_mission_count_send(chan,msg->sysid, msg->compid, mission.num_commands(),
+                                           MAV_MISSION_TYPE_MISSION);
             goto mission_item_send_failed;
         }
 
@@ -387,7 +416,8 @@ void GCS_MAVLINK::handle_mission_request(AP_Mission &mission, mavlink_message_t 
 
 mission_item_send_failed:
     // send failure message
-    mavlink_msg_mission_ack_send(chan, msg->sysid, msg->compid, MAV_MISSION_ERROR);
+    mavlink_msg_mission_ack_send(chan, msg->sysid, msg->compid, MAV_MISSION_ERROR,
+                                 MAV_MISSION_TYPE_MISSION);
 }
 
 /*
@@ -417,7 +447,8 @@ void GCS_MAVLINK::handle_mission_count(AP_Mission &mission, mavlink_message_t *m
     // start waypoint receiving
     if (packet.count > mission.num_commands_max()) {
         // send NAK
-        mavlink_msg_mission_ack_send(chan, msg->sysid, msg->compid, MAV_MISSION_NO_SPACE);
+        mavlink_msg_mission_ack_send(chan, msg->sysid, msg->compid, MAV_MISSION_NO_SPACE,
+                                     MAV_MISSION_TYPE_MISSION);
         return;
     }
 
@@ -444,10 +475,12 @@ void GCS_MAVLINK::handle_mission_clear_all(AP_Mission &mission, mavlink_message_
     // clear all waypoints
     if (mission.clear()) {
         // send ack
-        mavlink_msg_mission_ack_send(chan, msg->sysid, msg->compid, MAV_RESULT_ACCEPTED);
+        mavlink_msg_mission_ack_send(chan, msg->sysid, msg->compid, MAV_RESULT_ACCEPTED,
+                                     MAV_MISSION_TYPE_MISSION);
     }else{
         // send nack
-        mavlink_msg_mission_ack_send(chan, msg->sysid, msg->compid, MAV_MISSION_ERROR);
+        mavlink_msg_mission_ack_send(chan, msg->sysid, msg->compid, MAV_MISSION_ERROR,
+                                     MAV_MISSION_TYPE_MISSION);
     }
 }
 
@@ -872,7 +905,8 @@ bool GCS_MAVLINK::handle_mission_item(mavlink_message_t *msg, AP_Mission &missio
             chan,
             msg->sysid,
             msg->compid,
-            MAV_MISSION_ACCEPTED);
+            MAV_MISSION_ACCEPTED,
+            MAV_MISSION_TYPE_MISSION);
         
         send_text(MAV_SEVERITY_INFO,"Flight plan received");
         waypoint_receiving = false;
@@ -897,7 +931,8 @@ mission_ack:
         chan,
         msg->sysid,
         msg->compid,
-        result);
+        result,
+        MAV_MISSION_TYPE_MISSION);
 
     return mission_is_complete;
 }
