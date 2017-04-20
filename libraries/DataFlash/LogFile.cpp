@@ -682,9 +682,9 @@ void DataFlash_Class::Log_Write_GPS(const AP_GPS &gps, uint8_t i, uint64_t time_
         LOG_PACKET_HEADER_INIT((uint8_t)(LOG_GPA_MSG+i)),
         time_us       : time_us,
         vdop          : gps.get_vdop(i),
-        hacc          : (uint16_t)(hacc*100),
-        vacc          : (uint16_t)(vacc*100),
-        sacc          : (uint16_t)(sacc*100),
+        hacc          : (uint16_t)MIN((hacc*100), UINT16_MAX),
+        vacc          : (uint16_t)MIN((vacc*100), UINT16_MAX),
+        sacc          : (uint16_t)MIN((sacc*100), UINT16_MAX),
         have_vv       : (uint8_t)gps.have_vertical_velocity(i),
         sample_ms     : gps.last_message_time_ms(i)
     };
@@ -1035,9 +1035,11 @@ void DataFlash_Class::Log_Write_AHRS2(AP_AHRS &ahrs)
 {
     Vector3f euler;
     struct Location loc;
+    Quaternion quat;
     if (!ahrs.get_secondary_attitude(euler) || !ahrs.get_secondary_position(loc)) {
         return;
     }
+    ahrs.get_secondary_quaternion(quat);
     struct log_AHRS pkt = {
         LOG_PACKET_HEADER_INIT(LOG_AHR2_MSG),
         time_us : AP_HAL::micros64(),
@@ -1046,7 +1048,11 @@ void DataFlash_Class::Log_Write_AHRS2(AP_AHRS &ahrs)
         yaw   : (uint16_t)(wrap_360_cd(degrees(euler.z)*100)),
         alt   : loc.alt*1.0e-2f,
         lat   : loc.lat,
-        lng   : loc.lng
+        lng   : loc.lng,
+        q1    : quat.q1,
+        q2    : quat.q2,
+        q3    : quat.q3,
+        q4    : quat.q4,
     };
     WriteBlock(&pkt, sizeof(pkt));
 }
@@ -1247,6 +1253,20 @@ void DataFlash_Class::Log_Write_EKF2(AP_AHRS_NavEKF &ahrs, bool optFlowEnabled)
      };
     WriteBlock(&pkt5, sizeof(pkt5));
 
+    // log quaternion
+    Quaternion quat;
+    ahrs.get_NavEKF2().getQuaternion(0, quat);
+    struct log_Quaternion pktq1 = {
+        LOG_PACKET_HEADER_INIT(LOG_NKQ1_MSG),
+        time_us : time_us,
+        q1 : quat.q1,
+        q2 : quat.q2,
+        q3 : quat.q3,
+        q4 : quat.q4
+    };
+    WriteBlock(&pktq1, sizeof(pktq1));
+
+    
     // log innovations for the second IMU if enabled
     if (ahrs.get_NavEKF2().activeCores() >= 2) {
         // Write 6th EKF packet
@@ -1346,6 +1366,17 @@ void DataFlash_Class::Log_Write_EKF2(AP_AHRS_NavEKF &ahrs, bool optFlowEnabled)
             primary : (int8_t)primaryIndex
         };
         WriteBlock(&pkt9, sizeof(pkt9));
+
+        ahrs.get_NavEKF2().getQuaternion(1, quat);
+        struct log_Quaternion pktq2 = {
+            LOG_PACKET_HEADER_INIT(LOG_NKQ2_MSG),
+            time_us : time_us,
+            q1 : quat.q1,
+            q2 : quat.q2,
+            q3 : quat.q3,
+            q4 : quat.q4
+        };
+        WriteBlock(&pktq2, sizeof(pktq2));
     }
 
     // write range beacon fusion debug packet if the range value is non-zero
@@ -1542,6 +1573,19 @@ void DataFlash_Class::Log_Write_EKF3(AP_AHRS_NavEKF &ahrs, bool optFlowEnabled)
      };
     WriteBlock(&pkt5, sizeof(pkt5));
 
+    // log quaternion
+    Quaternion quat;
+    ahrs.get_NavEKF3().getQuaternion(0, quat);
+    struct log_Quaternion pktq1 = {
+        LOG_PACKET_HEADER_INIT(LOG_XKQ1_MSG),
+        time_us : time_us,
+        q1 : quat.q1,
+        q2 : quat.q2,
+        q3 : quat.q3,
+        q4 : quat.q4
+    };
+    WriteBlock(&pktq1, sizeof(pktq1));
+    
     // log innovations for the second IMU if enabled
     if (ahrs.get_NavEKF3().activeCores() >= 2) {
         // Write 6th EKF packet
@@ -1640,6 +1684,17 @@ void DataFlash_Class::Log_Write_EKF3(AP_AHRS_NavEKF &ahrs, bool optFlowEnabled)
         };
         WriteBlock(&pkt9, sizeof(pkt9));
 
+        // log quaternion
+        ahrs.get_NavEKF3().getQuaternion(1, quat);
+        struct log_Quaternion pktq2 = {
+            LOG_PACKET_HEADER_INIT(LOG_XKQ2_MSG),
+            time_us : time_us,
+            q1 : quat.q1,
+            q2 : quat.q2,
+            q3 : quat.q3,
+            q4 : quat.q4
+        };
+        WriteBlock(&pktq2, sizeof(pktq2));        
     }
     // write range beacon fusion debug packet if the range value is non-zero
     uint8_t ID;
@@ -1673,6 +1728,24 @@ void DataFlash_Class::Log_Write_EKF3(AP_AHRS_NavEKF &ahrs, bool optFlowEnabled)
              };
             WriteBlock(&pkt10, sizeof(pkt10));
         }
+    }
+    // write debug data for body frame odometry fusion
+    Vector3f velBodyInnov,velBodyInnovVar;
+    static uint32_t lastUpdateTime_ms = 0;
+    uint32_t updateTime_ms = ahrs.get_NavEKF3().getBodyFrameOdomDebug(-1, velBodyInnov, velBodyInnovVar);
+    if (updateTime_ms > lastUpdateTime_ms) {
+        struct log_ekfBodyOdomDebug pkt11 = {
+            LOG_PACKET_HEADER_INIT(LOG_XKFD_MSG),
+            time_us : time_us,
+            velInnovX : velBodyInnov.x,
+            velInnovY : velBodyInnov.y,
+            velInnovZ : velBodyInnov.z,
+            velInnovVarX : velBodyInnovVar.x,
+            velInnovVarY : velBodyInnovVar.y,
+            velInnovVarZ : velBodyInnovVar.z
+         };
+        WriteBlock(&pkt11, sizeof(pkt11));
+        updateTime_ms = lastUpdateTime_ms;
     }
 }
 #endif
@@ -1799,24 +1872,43 @@ void DataFlash_Class::Log_Write_AttitudeView(AP_AHRS_View &ahrs, const Vector3f 
 void DataFlash_Class::Log_Write_Current(const AP_BattMonitor &battery)
 {
     if (battery.num_instances() >= 1) {
+        float temp;
+        bool has_temp = battery.get_temperature(temp, 0);
         struct log_Current pkt = {
             LOG_PACKET_HEADER_INIT(LOG_CURRENT_MSG),
             time_us             : AP_HAL::micros64(),
             battery_voltage     : battery.voltage(0),
             current_amps        : battery.current_amps(0),
             current_total       : battery.current_total_mah(0),
+            temperature         : (int16_t)(has_temp ? (temp * 100) : 0),
         };
+        AP_BattMonitor::cells cells = battery.get_cell_voltages(0);
+
+        // check battery structure can hold all cells
+        static_assert(ARRAY_SIZE(cells.cells) == (sizeof(pkt.cell_voltages) / sizeof(pkt.cell_voltages[0])),
+                      "Battery cell number doesn't match in library and log structure");
+
+        for (uint8_t i = 0; i < ARRAY_SIZE(cells.cells); i++) {
+            pkt.cell_voltages[i] = cells.cells[i] + 1;
+        }
         WriteBlock(&pkt, sizeof(pkt));
     }
 
     if (battery.num_instances() >= 2) {
+        float temp;
+        bool has_temp = battery.get_temperature(temp, 1);
         struct log_Current pkt = {
             LOG_PACKET_HEADER_INIT(LOG_CURRENT2_MSG),
             time_us             : AP_HAL::micros64(),
             battery_voltage     : battery.voltage(1),
             current_amps        : battery.current_amps(1),
             current_total       : battery.current_total_mah(1),
+            temperature         : (int16_t)(has_temp ? (temp * 100) : 0),
         };
+        AP_BattMonitor::cells cells = battery.get_cell_voltages(1);
+        for (uint8_t i = 0; i < ARRAY_SIZE(cells.cells); i++) {
+            pkt.cell_voltages[i] = cells.cells[i] + 1;
+        }
         WriteBlock(&pkt, sizeof(pkt));
     }
 }
@@ -2052,4 +2144,35 @@ void DataFlash_Class::Log_Write_Rally(const AP_Rally &rally)
             WriteBlock(&pkt_rally, sizeof(pkt_rally));
         }
     }
+}
+
+// Write visual odometry sensor data
+void DataFlash_Class::Log_Write_VisualOdom(float time_delta, const Vector3f &angle_delta, const Vector3f &position_delta, float confidence)
+{
+    struct log_VisualOdom pkt_visualodom = {
+        LOG_PACKET_HEADER_INIT(LOG_VISUALODOM_MSG),
+        time_us             : AP_HAL::micros64(),
+        time_delta          : time_delta,
+        angle_delta_x       : angle_delta.x,
+        angle_delta_y       : angle_delta.y,
+        angle_delta_z       : angle_delta.z,
+        position_delta_x    : position_delta.x,
+        position_delta_y    : position_delta.y,
+        position_delta_z    : position_delta.z,
+        confidence          : confidence
+    };
+    WriteBlock(&pkt_visualodom, sizeof(log_VisualOdom));
+}
+
+// Write AOA and SSA
+void DataFlash_Class::Log_Write_AOA_SSA(AP_AHRS &ahrs)
+{
+    struct log_AOA_SSA aoa_ssa = {
+        LOG_PACKET_HEADER_INIT(LOG_AOA_SSA_MSG),
+        time_us         : AP_HAL::micros64(),
+        AOA             : ahrs.getAOA(),
+        SSA             : ahrs.getSSA()
+    };
+
+    WriteBlock(&aoa_ssa, sizeof(aoa_ssa));
 }

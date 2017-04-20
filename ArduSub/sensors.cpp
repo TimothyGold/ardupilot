@@ -14,10 +14,8 @@ void Sub::read_barometer(void)
     if (should_log(MASK_LOG_IMU)) {
         Log_Write_Baro();
     }
-    baro_alt = barometer.get_altitude() * 100.0f;
-    baro_climbrate = barometer.get_climb_rate() * 100.0f;
 
-    motors.set_air_density_ratio(barometer.get_air_density_ratio());
+    sensor_health.depth = barometer.healthy(depth_sensor_idx);
 }
 
 void Sub::init_rangefinder(void)
@@ -95,7 +93,7 @@ void Sub::init_compass()
 {
     if (!compass.init() || !compass.read()) {
         // make sure we don't pass a broken compass to DCM
-        cliSerial->println("COMPASS INIT ERROR");
+        hal.console->println("COMPASS INIT ERROR");
         Log_Write_Error(ERROR_SUBSYSTEM_COMPASS,ERROR_CODE_FAILED_TO_INITIALISE);
         return;
     }
@@ -103,9 +101,9 @@ void Sub::init_compass()
 }
 
 // initialise optical flow sensor
+#if OPTFLOW == ENABLED
 void Sub::init_optflow()
 {
-#if OPTFLOW == ENABLED
     // exit immediately if not enabled
     if (!optflow.enabled()) {
         return;
@@ -113,8 +111,8 @@ void Sub::init_optflow()
 
     // initialise optical flow sensor
     optflow.init();
-#endif      // OPTFLOW == ENABLED
 }
+#endif      // OPTFLOW == ENABLED
 
 // called at 200hz
 #if OPTFLOW == ENABLED

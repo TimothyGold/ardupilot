@@ -3,6 +3,7 @@
 #include <AP_Common/AP_Common.h>
 #include <AP_Param/AP_Param.h>
 #include <AP_Math/AP_Math.h>
+#include <GCS_MAVLink/GCS_MAVLink.h>
 
 // maximum number of battery monitors
 #define AP_BATT_MONITOR_MAX_INSTANCES       2
@@ -13,6 +14,8 @@
 #define AP_BATT_CAPACITY_DEFAULT            3300
 #define AP_BATT_LOW_VOLT_TIMEOUT_MS         10000   // low voltage of 10 seconds will cause battery_exhausted to return true
 #define AP_BATT_MAX_WATT_DEFAULT            0
+
+#define AP_BATT_MONITOR_TIMEOUT             5000
 
 // declare backend class
 class AP_BattMonitor_Backend;
@@ -44,6 +47,10 @@ public:
         BattMonitor_TYPE_MAXELL                     = 7
     };
 
+    struct cells {
+        uint16_t cells[MAVLINK_MSG_BATTERY_STATUS_FIELD_VOLTAGES_LEN];
+    };
+
     // The BattMonitor_State structure is filled in by the backend driver
     struct BattMonitor_State {
         uint8_t     instance;           // the instance number of this monitor
@@ -54,6 +61,9 @@ public:
         float       current_total_mah;  // total current draw since start-up
         uint32_t    last_time_micros;   // time when voltage and current was last read
         uint32_t    low_voltage_start_ms;  // time when voltage dropped below the minimum
+        cells       cell_voltages;      // battery cell voltages in millivolts, 10 cells matches the MAVLink spec
+        float       temperature;        // battery temperature in celsius
+        uint32_t    temperature_time;   // timestamp of the last recieved temperature message
     };
 
     // Return the number of battery monitor instances
@@ -115,6 +125,14 @@ public:
     /// true when (voltage * current) > watt_max
     bool overpower_detected() const;
     bool overpower_detected(uint8_t instance) const;
+
+    // cell voltages
+    const cells & get_cell_voltages() { return get_cell_voltages(AP_BATT_PRIMARY_INSTANCE); };
+    const cells & get_cell_voltages(const uint8_t instance) const;
+
+    // temperature
+    bool get_temperature(float &temperature) const { return get_temperature(temperature, AP_BATT_PRIMARY_INSTANCE); };
+    bool get_temperature(float &temperature, const uint8_t instance) const;
 
     static const struct AP_Param::GroupInfo var_info[];
 

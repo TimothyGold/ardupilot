@@ -12,30 +12,28 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
-//
-//  GPS proxy driver for APM on PX4 platforms
-//  Code by Holger Steinhaus
-//
 #pragma once
 
+#include <AP_Common/AP_Common.h>
 #include <AP_HAL/AP_HAL.h>
+#include "AP_VisualOdom.h"
 
-#include "AP_GPS.h"
-#include "GPS_Backend.h"
-
-#if CONFIG_HAL_BOARD == HAL_BOARD_PX4
-#include <modules/uORB/topics/vehicle_gps_position.h>
-
-class AP_GPS_PX4 : public AP_GPS_Backend {
+class AP_VisualOdom_Backend
+{
 public:
-    AP_GPS_PX4(AP_GPS &_gps, AP_GPS::GPS_State &_state, AP_HAL::UARTDriver *_port);
-    ~AP_GPS_PX4();
+    // constructor. This incorporates initialisation as well.
+	AP_VisualOdom_Backend(AP_VisualOdom &frontend);
 
-    bool read();
+    // consume VISION_POSITION_DELTA MAVLink message
+	virtual void handle_msg(mavlink_message_t *msg) {};
+
+protected:
+
+    // set deltas (used by backend to update state)
+    void set_deltas(const Vector3f &angle_delta, const Vector3f& position_delta, uint64_t time_delta_usec, float confidence);
 
 private:
-    int                           _gps_sub;
-    struct vehicle_gps_position_s _gps_pos;
+
+    // references
+    AP_VisualOdom &_frontend;
 };
-#endif // CONFIG_HAL_BOARD

@@ -34,7 +34,7 @@ NOINLINE void Sub::send_heartbeat(mavlink_channel_t chan)
     uint32_t custom_mode = control_mode;
 
     // set system as critical if any failsafe have triggered
-    if (failsafe.manual_control || failsafe.battery || failsafe.gcs || failsafe.ekf || failsafe.terrain)  {
+    if (failsafe.pilot_input || failsafe.battery || failsafe.gcs || failsafe.ekf || failsafe.terrain)  {
         system_status = MAV_STATE_CRITICAL;
     }
 
@@ -156,9 +156,7 @@ NOINLINE void Sub::send_extended_status1(mavlink_channel_t chan)
                              MAV_SYS_STATUS_SENSOR_GPS |
                              MAV_SYS_STATUS_SENSOR_RC_RECEIVER);
 
-    if (ap.depth_sensor_present && barometer.all_healthy()) { // check all barometers
-        control_sensors_health |= MAV_SYS_STATUS_SENSOR_ABSOLUTE_PRESSURE;
-    } else if (barometer.healthy(0)) { // check the internal barometer only
+    if (sensor_health.depth) { // check the internal barometer only
         control_sensors_health |= MAV_SYS_STATUS_SENSOR_ABSOLUTE_PRESSURE;
     }
     if (g.compass_enabled && compass.healthy() && ahrs.use_compass()) {
@@ -651,6 +649,7 @@ bool GCS_MAVLINK_Sub::try_send_message(enum ap_message id)
     case MSG_FENCE_STATUS:
     case MSG_WIND:
     case MSG_POSITION_TARGET_GLOBAL_INT:
+    case MSG_AOA_SSA:
         // unused
         break;
 
@@ -958,14 +957,8 @@ void GCS_MAVLINK_Sub::handleMessage(mavlink_message_t* msg)
     }
 
     // GCS has sent us a mission item, store to EEPROM
-    case MAVLINK_MSG_ID_MISSION_ITEM: {         // MAV ID: 39
-        if (handle_mission_item(msg, sub.mission)) {
-            sub.DataFlash.Log_Write_EntireMission(sub.mission);
-        }
-        break;
-    }
-
-    case MAVLINK_MSG_ID_MISSION_ITEM_INT: {
+    case MAVLINK_MSG_ID_MISSION_ITEM:
+    case MAVLINK_MSG_ID_MISSION_ITEM_INT: {         // MAV ID: 39
         if (handle_mission_item(msg, sub.mission)) {
             sub.DataFlash.Log_Write_EntireMission(sub.mission);
         }
@@ -1023,7 +1016,7 @@ void GCS_MAVLINK_Sub::handleMessage(mavlink_message_t* msg)
 
         sub.transform_manual_control_to_rc_override(packet.x,packet.y,packet.z,packet.r,packet.buttons);
 
-        sub.failsafe.last_manual_control_ms = AP_HAL::millis();
+        sub.failsafe.last_pilot_input_ms = AP_HAL::millis();
         // a RC override message is considered to be a 'heartbeat' from the ground station for failsafe purposes
         sub.failsafe.last_heartbeat_ms = AP_HAL::millis();
         break;
@@ -1047,9 +1040,9 @@ void GCS_MAVLINK_Sub::handleMessage(mavlink_message_t* msg)
         v[6] = packet.chan7_raw;
         v[7] = packet.chan8_raw;
 
-        // record that rc are overwritten so we can trigger a failsafe if we lose contact with groundstation
-        sub.failsafe.rc_override_active = hal.rcin->set_overrides(v, 8);
+        hal.rcin->set_overrides(v, 8);
 
+        sub.failsafe.last_pilot_input_ms = AP_HAL::millis();
         // a RC override message is considered to be a 'heartbeat' from the ground station for failsafe purposes
         sub.failsafe.last_heartbeat_ms = AP_HAL::millis();
         break;
@@ -1103,15 +1096,6 @@ void GCS_MAVLINK_Sub::handleMessage(mavlink_message_t* msg)
                 AP_Param::erase_all();
                 sub.gcs_send_text(MAV_SEVERITY_WARNING, "All parameters reset, reboot board");
                 result= MAV_RESULT_ACCEPTED;
-            }
-            break;
-
-        case MAV_CMD_START_RX_PAIR:
-            // initiate bind procedure
-            if (!hal.rcin->rc_bind(packet.param1)) {
-                result = MAV_RESULT_FAILED;
-            } else {
-                result = MAV_RESULT_ACCEPTED;
             }
             break;
 
@@ -1242,10 +1226,6 @@ void GCS_MAVLINK_Sub::handleMessage(mavlink_message_t* msg)
 
         case MAV_CMD_MISSION_START:
             if (sub.motors.armed() && sub.set_mode(AUTO, MODE_REASON_GCS_COMMAND)) {
-                sub.set_auto_armed(true);
-                if (sub.mission.state() != AP_Mission::MISSION_RUNNING) {
-                    sub.mission.start_or_resume();
-                }
                 result = MAV_RESULT_ACCEPTED;
             }
             break;
@@ -1263,7 +1243,7 @@ void GCS_MAVLINK_Sub::handleMessage(mavlink_message_t* msg)
                     result = MAV_RESULT_FAILED;
                 }
             } else if (is_equal(packet.param3,1.0f)) {
-                if (!sub.ap.depth_sensor_present || sub.motors.armed() || sub.barometer.get_pressure() > 110000) {
+                if (!sub.sensor_health.depth || sub.motors.armed() || sub.barometer.get_pressure() > 110000) {
                     result = MAV_RESULT_FAILED;
                 } else {
                     sub.init_barometer(true);
@@ -1481,11 +1461,6 @@ void GCS_MAVLINK_Sub::handleMessage(mavlink_message_t* msg)
         break;
     }
 
-    case MAVLINK_MSG_ID_COMMAND_ACK: {      // MAV ID: 77
-        sub.command_ack_counter++;
-        break;
-    }
-
     case MAVLINK_MSG_ID_SET_ATTITUDE_TARGET: { // MAV ID: 82
         // decode packet
         mavlink_set_attitude_target_t packet;
@@ -1676,12 +1651,6 @@ void GCS_MAVLINK_Sub::handleMessage(mavlink_message_t* msg)
         break;
     }
 
-    case MAVLINK_MSG_ID_RADIO:
-    case MAVLINK_MSG_ID_RADIO_STATUS: {     // MAV ID: 109
-        handle_radio_status(msg, sub.DataFlash, sub.should_log(MASK_LOG_PM));
-        break;
-    }
-
     case MAVLINK_MSG_ID_LOG_REQUEST_DATA:
     case MAVLINK_MSG_ID_LOG_ERASE:
         sub.in_log_download = true;
@@ -1842,6 +1811,8 @@ void GCS_MAVLINK_Sub::handleMessage(mavlink_message_t* msg)
         break;
     }
 
+    // This adds support for leak detectors in a separate enclosure
+    // connected to a mavlink enabled subsystem
     case MAVLINK_MSG_ID_SYS_STATUS: {
         uint32_t MAV_SENSOR_WATER = 0x20000000;
         mavlink_sys_status_t packet;
@@ -1891,7 +1862,6 @@ void Sub::mavlink_delay_cb()
         last_5s = tnow;
         gcs_send_text(MAV_SEVERITY_INFO, "Initialising APM");
     }
-    check_usb_mux();
 
     in_mavlink_delay = false;
 }

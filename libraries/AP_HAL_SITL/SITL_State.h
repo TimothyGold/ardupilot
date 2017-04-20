@@ -84,7 +84,7 @@ private:
 
     void set_height_agl(void);
     void _update_barometer(float height);
-    void _update_compass(float rollDeg, float pitchDeg, float yawDeg);
+    void _update_compass(void);
 
     void _set_signal_handlers(void) const;
 
@@ -114,6 +114,7 @@ private:
     void _update_gps_nmea(const struct gps_data *d);
     void _sbp_send_message(uint16_t msg_type, uint16_t sender_id, uint8_t len, uint8_t *payload);
     void _update_gps_sbp(const struct gps_data *d);
+    void _update_gps_sbp2(const struct gps_data *d);
     void _update_gps_file(const struct gps_data *d);
     void _update_gps_nova(const struct gps_data *d);
     void _nova_send_message(uint8_t *header, uint8_t headerlength, uint8_t *payload, uint8_t payloadlen);
@@ -123,10 +124,7 @@ private:
     void _update_gps(double latitude, double longitude, float altitude,
                      double speedN, double speedE, double speedD, bool have_lock);
 
-    void _update_ins(float roll, 	float pitch, 	float yaw,		// Relative to earth
-                     double rollRate, 	double pitchRate,double yawRate,	// Local to plane
-                     double xAccel, 	double yAccel, 	double zAccel,		// Local to plane
-                     float airspeed,	float altitude);
+    void _update_ins(float airspeed);
     void _check_rc_input(void);
     void _fdm_input_local(void);
     void _output_to_flightgear(void);

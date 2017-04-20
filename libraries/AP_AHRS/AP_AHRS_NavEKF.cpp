@@ -261,15 +261,19 @@ void AP_AHRS_NavEKF::update_SITL(void)
 {
     if (_sitl == nullptr) {
         _sitl = (SITL::SITL *)AP_Param::find_object("SIM_");
+        if (_sitl == nullptr) {
+            return;
+        }
     }
-    if (_sitl && active_EKF_type() == EKF_TYPE_SITL) {
-        const struct SITL::sitl_fdm &fdm = _sitl->state;
 
+    const struct SITL::sitl_fdm &fdm = _sitl->state;
+
+    if (active_EKF_type() == EKF_TYPE_SITL) {
         roll  = radians(fdm.rollDeg);
         pitch = radians(fdm.pitchDeg);
         yaw   = radians(fdm.yawDeg);
 
-        _dcm_matrix.from_euler(roll, pitch, yaw);
+        fdm.quaternion.rotation_matrix(_dcm_matrix);
 
         update_cd_values();
         update_trig();
@@ -286,6 +290,27 @@ void AP_AHRS_NavEKF::update_SITL(void)
                                         fdm.zAccel);
         }
         _accel_ef_ekf_blended = _accel_ef_ekf[0];
+
+    }
+    // use SITL states to write body frame odometry data at 20Hz
+    uint32_t timeStamp_ms = AP_HAL::millis();
+    if (timeStamp_ms - _last_body_odm_update_ms > 50) {
+        const float quality = 100.0f;
+        const Vector3f posOffset = Vector3f(0.0f,0.0f,0.0f);
+        float delTime = 0.001f*(timeStamp_ms - _last_body_odm_update_ms);
+        _last_body_odm_update_ms = timeStamp_ms;
+        timeStamp_ms -= (timeStamp_ms - _last_body_odm_update_ms)/2; // correct for first order hold average delay
+        Vector3f delAng = Vector3f(radians(fdm.rollRate),
+                                   radians(fdm.pitchRate),
+                                   radians(fdm.yawRate));
+        delAng *= delTime;
+        // rotate earth velocity into body frame and calculate delta position
+        Matrix3f Tbn;
+        Tbn.from_euler(radians(fdm.rollDeg),radians(fdm.pitchDeg),radians(fdm.yawDeg));
+        Vector3f earth_vel = Vector3f(fdm.speedN,fdm.speedE,fdm.speedD);
+        Vector3f delPos = Tbn.transposed() * (earth_vel * delTime);
+        // write to EKF
+        EKF3.writeBodyFrameOdom(quality, delPos, delAng, delTime, timeStamp_ms, posOffset);
     }
 }
 #endif // CONFIG_HAL_BOARD
@@ -457,6 +482,27 @@ bool AP_AHRS_NavEKF::get_secondary_attitude(Vector3f &eulers)
     default:
         // DCM is secondary
         eulers = _dcm_attitude;
+        return true;
+    }
+}
+
+
+// return secondary attitude solution if available, as quaternion
+bool AP_AHRS_NavEKF::get_secondary_quaternion(Quaternion &quat)
+{
+    switch (active_EKF_type()) {
+    case EKF_TYPE_NONE:
+        // EKF is secondary
+        EKF2.getQuaternion(-1, quat);
+        return _ekf2_started;
+
+    case EKF_TYPE2:
+
+    case EKF_TYPE3:
+
+    default:
+        // DCM is secondary
+        quat.from_rotation_matrix(AP_AHRS_DCM::get_rotation_body_to_ned());
         return true;
     }
 }
@@ -1049,6 +1095,12 @@ void  AP_AHRS_NavEKF::writeOptFlowMeas(uint8_t &rawFlowQuality, Vector2f &rawFlo
 {
     EKF2.writeOptFlowMeas(rawFlowQuality, rawFlowRates, rawGyroRates, msecFlowMeas, posOffset);
     EKF3.writeOptFlowMeas(rawFlowQuality, rawFlowRates, rawGyroRates, msecFlowMeas, posOffset);
+}
+
+// write body frame odometry measurements to the EKF
+void  AP_AHRS_NavEKF::writeBodyFrameOdom(float quality, const Vector3f &delPos, const Vector3f &delAng, float delTime, uint32_t timeStamp_ms, const Vector3f &posOffset)
+{
+    EKF3.writeBodyFrameOdom(quality, delPos, delAng, delTime, timeStamp_ms, posOffset);
 }
 
 // inhibit GPS usage

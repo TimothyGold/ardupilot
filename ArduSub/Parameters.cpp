@@ -165,6 +165,21 @@ const AP_Param::Info Sub::var_info[] = {
     // @User: Standard
     GSCALAR(failsafe_terrain, "FS_TERRAIN_ENAB", FS_TERRAIN_DISARM),
 
+    // @Param: FS_PILOT_INPUT
+    // @DisplayName: Pilot input failsafe action
+    // @Description: Controls what action to take if no pilot input has been received after the timeout period specified by the FS_PILOT_TIMEOUT parameter
+    // @Values: 0:Disabled, 1:Warn Only, 2:Disarm
+    // @User: Standard
+    GSCALAR(failsafe_pilot_input, "FS_PILOT_INPUT", FS_PILOT_INPUT_DISARM),
+
+    // @Param: FS_PILOT_TIMEOUT
+    // @DisplayName: Timeout for activation of pilot input failsafe
+    // @Description: Controls the maximum interval between received pilot inputs before the failsafe action is triggered
+    // @Units: Seconds
+    // @Range 0.1 3.0
+    // @User: Standard
+    GSCALAR(failsafe_pilot_input_timeout, "FS_PILOT_TIMEOUT", 1.0f),
+
     // @Param: XTRACK_ANG_LIM
     // @DisplayName: Crosstrack correction angle limit
     // @Description: Maximum allowed angle (in degrees) between current track and desired heading during waypoint navigation
@@ -703,7 +718,7 @@ const AP_Param::Info Sub::var_info[] = {
     // @User: Standard
     GSCALAR(terrain_follow, "TERRAIN_FOLLOW", 0),
 
-    GSCALAR(cam_slew_limit, "CAM_SLEW_LIMIT", 45.0),
+    GSCALAR(cam_slew_limit, "CAM_SLEW_LIMIT", 30.0),
 
     // @Group:
     // @Path: Parameters.cpp
@@ -754,7 +769,7 @@ ParametersG2::ParametersG2(void)
 void Sub::load_parameters(void)
 {
     if (!AP_Param::check_var_info()) {
-        cliSerial->printf("Bad var table\n");
+        hal.console->printf("Bad var table\n");
         AP_HAL::panic("Bad var table");
     }
 
@@ -766,18 +781,18 @@ void Sub::load_parameters(void)
             g.format_version != Parameters::k_format_version) {
 
         // erase all parameters
-        cliSerial->printf("Firmware change: erasing EEPROM...\n");
+        hal.console->printf("Firmware change: erasing EEPROM...\n");
         AP_Param::erase_all();
 
         // save the current format version
         g.format_version.set_and_save(Parameters::k_format_version);
-        cliSerial->println("done.");
+        hal.console->println("done.");
     }
 
     uint32_t before = micros();
     // Load all auto-loaded EEPROM variables
     AP_Param::load_all();
-    cliSerial->printf("load_all took %uus\n", (unsigned)(micros() - before));
+    hal.console->printf("load_all took %uus\n", (unsigned)(micros() - before));
 
     AP_Param::set_frame_type_flags(AP_PARAM_FRAME_SUB);
 
@@ -794,6 +809,8 @@ void Sub::load_parameters(void)
             AP_Arming::ARMING_CHECK_BATTERY |
             AP_Arming::ARMING_CHECK_LOGGING);
     AP_Param::set_default_by_name("CIRCLE_RATE", 2.0f);
+    AP_Param::set_default_by_name("ATC_ACCEL_Y_MAX", 110000.0f);
+    AP_Param::set_default_by_name("RC3_TRIM", 1100);
 }
 
 void Sub::convert_old_parameters(void)

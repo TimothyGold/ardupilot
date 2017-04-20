@@ -234,15 +234,13 @@ void NOINLINE Copter::send_proximity(mavlink_channel_t chan, uint16_t count_max)
         return;
     }
 
-    // send at most 8 distances
-    if (count_max > 8) {
-        count_max = 8;
-    }
+    bool send_upwards = true;
 
-    // send known distances
+    // send horizontal distances
     AP_Proximity::Proximity_Distance_Array dist_array;
-    if (g2.proximity.get_distances(dist_array)) {
-        for (uint8_t i=0; i<count_max; i++) {
+    uint8_t horiz_count = MIN(count_max, 8);    // send at most 8 horizontal distances
+    if (g2.proximity.get_horizontal_distances(dist_array)) {
+        for (uint8_t i=0; i<horiz_count; i++) {
             mavlink_msg_distance_sensor_send(
                 chan,
                 AP_HAL::millis(),               //  time since system boot
@@ -254,6 +252,23 @@ void NOINLINE Copter::send_proximity(mavlink_channel_t chan, uint16_t count_max)
                 dist_array.orientation[i],      //  direction the sensor faces from MAV_SENSOR_ORIENTATION enum
                 1);                             // Measurement covariance in centimeters, 0 for unknown / invalid readings
         }
+        // check if we still have room to send upwards distance
+        send_upwards = (count_max > 8);
+    }
+
+    // send upward distance
+    float dist_up;
+    if (send_upwards && g2.proximity.get_upward_distance(dist_up)) {
+        mavlink_msg_distance_sensor_send(
+            chan,
+            AP_HAL::millis(),               //  time since system boot
+            (uint16_t)(g2.proximity.distance_min() * 100),  // minimum distance the sensor can measure in centimeters
+            (uint16_t)(g2.proximity.distance_max() * 100),  // maximum distance the sensor can measure in centimeters
+            (uint16_t)(dist_up * 100),      // current distance reading
+            MAV_DISTANCE_SENSOR_LASER,      // type from MAV_DISTANCE_SENSOR enum
+            0,                              // onboard ID of the sensor
+            MAV_SENSOR_ROTATION_PITCH_90,   // direction upwards
+            1);                             // Measurement covariance in centimeters, 0 for unknown / invalid readings
     }
 #endif
 }
@@ -547,6 +562,7 @@ bool GCS_MAVLINK_Copter::try_send_message(enum ap_message id)
     case MSG_WIND:
     case MSG_POSITION_TARGET_GLOBAL_INT:
     case MSG_SERVO_OUT:
+    case MSG_AOA_SSA:
         // unused
         break;
 
@@ -2017,6 +2033,12 @@ void GCS_MAVLINK_Copter::handleMessage(mavlink_message_t* msg)
     case MAVLINK_MSG_ID_UAVIONIX_ADSB_TRANSCEIVER_HEALTH_REPORT:
 #if ADSB_ENABLED == ENABLED
         copter.adsb.handle_message(chan, msg);
+#endif
+        break;
+
+    case MAVLINK_MSG_ID_VISION_POSITION_DELTA:
+#if VISUAL_ODOMETRY_ENABLED == ENABLED
+        copter.g2.visual_odom.handle_msg(msg);
 #endif
         break;
 
