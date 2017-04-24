@@ -294,6 +294,9 @@ private:
     enum FlightMode previous_mode = INITIALISING;
     mode_reason_t previous_mode_reason = MODE_REASON_UNKNOWN;
 
+    // time of last mode change
+    uint32_t last_mode_change_ms;
+
     // Used to maintain the state of the previous control switch position
     // This is set to 254 when we need to re-read the switch
     uint8_t oldSwitchPosition = 254;
@@ -1058,6 +1061,8 @@ private:
     bool suppress_throttle(void);
     void channel_output_mixer_pwm(uint8_t mixing_type, uint16_t & chan1, uint16_t & chan2)const;
     void channel_output_mixer(uint8_t mixing_type, SRV_Channel::Aux_servo_function_t servo1, SRV_Channel::Aux_servo_function_t servo2);
+    void channel_function_mixer(SRV_Channel::Aux_servo_function_t func1_in, SRV_Channel::Aux_servo_function_t func2_in,
+                                SRV_Channel::Aux_servo_function_t func1_out, SRV_Channel::Aux_servo_function_t func2_out);
     void flaperon_update(int8_t flap_percent);
     bool start_command(const AP_Mission::Mission_Command& cmd);
     bool verify_command(const AP_Mission::Mission_Command& cmd);
