@@ -217,6 +217,9 @@ void Rover::init_ardupilot()
     // set the correct flight mode
     // ---------------------------
     reset_control_switch();
+
+    // disable safety if requested
+    BoardConfig.init_safety();
 }
 
 //*********************************************************************************
@@ -245,6 +248,12 @@ void Rover::startup_ground(void)
 
     // initialise mission library
     mission.init();
+
+    // initialise DataFlash library
+    DataFlash.set_mission(&mission);
+    DataFlash.setVehicle_Startup_Log_Writer(
+        FUNCTOR_BIND(&rover, &Rover::Log_Write_Vehicle_Startup_Messages, void)
+        );
 
     // we don't want writes to the serial port to cause us to pause
     // so set serial ports non-blocking once we are ready to drive
@@ -324,13 +333,11 @@ void Rover::set_mode(enum mode mode)
 
     case GUIDED:
         auto_throttle_mode = true;
-        rtl_complete = false;
         /*
            when entering guided mode we set the target as the current
            location. This matches the behaviour of the copter code.
            */
-        guided_WP = current_loc;
-        set_guided_WP();
+        set_guided_WP(current_loc);
         break;
 
     default:

@@ -86,6 +86,9 @@ void Tracker::init_tracker()
 
     init_barometer(true);
 
+    // initialise DataFlash library
+    DataFlash.setVehicle_Startup_Log_Writer(FUNCTOR_BIND(&tracker, &Tracker::Log_Write_Vehicle_Startup_Messages, void));
+
     // set serial ports non-blocking
     serial_manager.set_blocking_writes_all(false);
 
@@ -117,6 +120,9 @@ void Tracker::init_tracker()
         // for some servos)
         prepare_servos();
     }
+
+    // disable safety if requested
+    BoardConfig.init_safety();  
 
     set_mode(INITIALISING); // Special startup mode to handle tracker movements properly (first stabilize pitch, then yaw)
 }
