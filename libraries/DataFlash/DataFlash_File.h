@@ -33,7 +33,7 @@ public:
 
     // initialisation
     void Init() override;
-    bool CardInserted(void) override;
+    bool CardInserted(void) const override;
 
     // erase handling
     void EraseAll() override;
@@ -72,6 +72,10 @@ public:
     bool logging_failed() const override;
 
     void vehicle_was_disarmed() override;
+
+protected:
+
+    bool WritesOK() const override;
 
 private:
     int _write_fd;

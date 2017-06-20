@@ -192,6 +192,9 @@ void AP_AHRS_NavEKF::update_EKF2(void)
                 }
             }
             _accel_ef_ekf_blended = _accel_ef_ekf[primary_imu>=0?primary_imu:_ins.get_primary_accel()];
+            nav_filter_status filt_state;
+            EKF2.getFilterStatus(-1,filt_state);
+            AP_Notify::flags.gps_fusion = filt_state.flags.using_gps; // Drives AP_Notify flag for usable GPS.
         }
     }
 }
@@ -260,6 +263,9 @@ void AP_AHRS_NavEKF::update_EKF3(void)
                 }
             }
             _accel_ef_ekf_blended = _accel_ef_ekf[_ins.get_primary_accel()];
+            nav_filter_status filt_state;
+            EKF3.getFilterStatus(-1,filt_state);
+            AP_Notify::flags.gps_fusion = filt_state.flags.using_gps; // Drives AP_Notify flag for usable GPS.
         }
     }
 }
@@ -380,7 +386,7 @@ bool AP_AHRS_NavEKF::get_position(struct Location &loc) const
         return AP_AHRS_DCM::get_position(loc);
 
     case EKF_TYPE2:
-        if (EKF2.getLLH(loc) && EKF2.getPosD(-1,ned_pos.z) && EKF2.getOriginLLH(origin)) {
+        if (EKF2.getLLH(loc) && EKF2.getPosD(-1,ned_pos.z) && EKF2.getOriginLLH(-1,origin)) {
             // fixup altitude using relative position from EKF origin
             loc.alt = origin.alt - ned_pos.z*100;
             return true;
@@ -388,7 +394,7 @@ bool AP_AHRS_NavEKF::get_position(struct Location &loc) const
         break;
 
     case EKF_TYPE3:
-        if (EKF3.getLLH(loc) && EKF3.getPosD(-1,ned_pos.z) && EKF3.getOriginLLH(origin)) {
+        if (EKF3.getLLH(loc) && EKF3.getPosD(-1,ned_pos.z) && EKF3.getOriginLLH(-1,origin)) {
             // fixup altitude using relative position from EKF origin
             loc.alt = origin.alt - ned_pos.z*100;
             return true;
@@ -997,7 +1003,7 @@ AP_AHRS_NavEKF::EKF_TYPE AP_AHRS_NavEKF::active_EKF_type(void) const
             return EKF_TYPE_NONE;
         }
         if (!filt_state.flags.horiz_vel ||
-            !filt_state.flags.horiz_pos_abs) {
+            (!filt_state.flags.horiz_pos_abs && !filt_state.flags.horiz_pos_rel)) {
             if ((!_compass || !_compass->use_for_yaw()) &&
                 _gps.status() >= AP_GPS::GPS_OK_FIX_3D &&
                 _gps.ground_speed() < 2) {
@@ -1406,13 +1412,13 @@ bool AP_AHRS_NavEKF::get_origin(Location &ret) const
 
     case EKF_TYPE2:
     default:
-        if (!EKF2.getOriginLLH(ret)) {
+        if (!EKF2.getOriginLLH(-1,ret)) {
             return false;
         }
         return true;
 
     case EKF_TYPE3:
-        if (!EKF3.getOriginLLH(ret)) {
+        if (!EKF3.getOriginLLH(-1,ret)) {
             return false;
         }
         return true;

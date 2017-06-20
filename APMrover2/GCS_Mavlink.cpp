@@ -144,7 +144,7 @@ void Rover::send_nav_controller_output(mavlink_channel_t chan)
         ahrs.groundspeed() * ins.get_gyro().z,  // use nav_pitch to hold actual Y accel
         nav_controller->nav_bearing_cd() * 0.01f,
         nav_controller->target_bearing_cd() * 0.01f,
-        wp_distance,
+        MIN(wp_distance, UINT16_MAX),
         0,
         groundspeed_error,
         nav_controller->crosstrack_error());
@@ -417,6 +417,7 @@ bool GCS_MAVLINK_Rover::try_send_message(enum ap_message id)
     case MSG_RANGEFINDER:
         CHECK_PAYLOAD_SIZE(RANGEFINDER);
         rover.send_rangefinder(chan);
+        send_distance_sensor(rover.sonar);
         break;
 
     case MSG_MOUNT_STATUS:
@@ -1045,29 +1046,17 @@ void GCS_MAVLINK_Rover::handleMessage(mavlink_message_t* msg)
             // param7 : altitude
             result = MAV_RESULT_FAILED;  // assume failure
             if (is_equal(packet.param1, 1.0f)) {
-                rover.init_home();
+                if (rover.set_home_to_current_location(true)) {
+                    result = MAV_RESULT_ACCEPTED;
+                }
             } else {
-                if (is_zero(packet.param5) && is_zero(packet.param6) && is_zero(packet.param7)) {
-                    // don't allow the 0,0 position
-                    break;
-                }
-                // sanity check location
-                if (!check_latlng(packet.param5, packet.param6)) {
-                    break;
-                }
                 Location new_home_loc {};
                 new_home_loc.lat = static_cast<int32_t>(packet.param5 * 1.0e7f);
                 new_home_loc.lng = static_cast<int32_t>(packet.param6 * 1.0e7f);
                 new_home_loc.alt = static_cast<int32_t>(packet.param7 * 100.0f);
-                rover.ahrs.set_home(new_home_loc);
-                rover.home_is_set = HOME_SET_NOT_LOCKED;
-                rover.Log_Write_Home_And_Origin();
-                GCS_MAVLINK::send_home_all(new_home_loc);
-                result = MAV_RESULT_ACCEPTED;
-                rover.gcs_send_text_fmt(MAV_SEVERITY_INFO, "Set HOME to %.6f %.6f at %.2fm",
-                        static_cast<double>(new_home_loc.lat * 1.0e-7f),
-                        static_cast<double>(new_home_loc.lng * 1.0e-7f),
-                        static_cast<double>(new_home_loc.alt * 0.01f));
+                if (rover.set_home(new_home_loc, true)) {
+                    result = MAV_RESULT_ACCEPTED;
+                }
             }
             break;
         }
@@ -1553,10 +1542,6 @@ void GCS_MAVLINK_Rover::handleMessage(mavlink_message_t* msg)
         rover.sonar.handle_msg(msg);
         break;
 
-    case MAVLINK_MSG_ID_REMOTE_LOG_BLOCK_STATUS:
-        rover.DataFlash.remote_log_block_status_msg(chan, msg);
-        break;
-
     case MAVLINK_MSG_ID_AUTOPILOT_VERSION_REQUEST:
         send_autopilot_version(FIRMWARE_VERSION);
         break;
@@ -1569,6 +1554,10 @@ void GCS_MAVLINK_Rover::handleMessage(mavlink_message_t* msg)
     case MAVLINK_MSG_ID_PLAY_TUNE:
         // send message to Notify
         AP_Notify::handle_play_tune(msg);
+        break;
+
+    case MAVLINK_MSG_ID_VISION_POSITION_DELTA:
+        rover.g2.visual_odom.handle_msg(msg);
         break;
 
     default:
@@ -1591,6 +1580,8 @@ void Rover::mavlink_delay_cb()
     }
 
     in_mavlink_delay = true;
+    // don't allow potentially expensive logging calls:
+    DataFlash.EnableWrites(false);
 
     const uint32_t tnow = millis();
     if (tnow - last_1hz > 1000) {
@@ -1610,6 +1601,7 @@ void Rover::mavlink_delay_cb()
     }
     check_usb_mux();
 
+    DataFlash.EnableWrites(true);
     in_mavlink_delay = false;
 }
 

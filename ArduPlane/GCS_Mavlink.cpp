@@ -199,7 +199,7 @@ void Plane::send_nav_controller_output(mavlink_channel_t chan)
         nav_pitch_cd * 0.01f,
         nav_controller->nav_bearing_cd() * 0.01f,
         nav_controller->target_bearing_cd() * 0.01f,
-        auto_state.wp_distance,
+        MIN(auto_state.wp_distance, UINT16_MAX),
         altitude_error_cm * 0.01f,
         airspeed_error * 100,
         nav_controller->crosstrack_error());
@@ -414,18 +414,6 @@ void Plane::send_pid_tuning(mavlink_channel_t chan)
     }
 }
 
-void Plane::send_rangefinder(mavlink_channel_t chan)
-{
-    if (!rangefinder.has_data_orient(ROTATION_PITCH_270)) {
-        // no sonar to report
-        return;
-    }
-    mavlink_msg_rangefinder_send(
-        chan,
-        rangefinder.distance_cm_orient(ROTATION_PITCH_270) * 0.01f,
-        rangefinder.voltage_mv_orient(ROTATION_PITCH_270) * 0.001f);
-}
-
 void Plane::send_current_waypoint(mavlink_channel_t chan)
 {
     mavlink_msg_mission_current_send(chan, mission.get_current_nav_index());
@@ -597,7 +585,9 @@ bool GCS_MAVLINK_Plane::try_send_message(enum ap_message id)
 
     case MSG_RANGEFINDER:
         CHECK_PAYLOAD_SIZE(RANGEFINDER);
-        plane.send_rangefinder(chan);
+        send_rangefinder_downward(plane.rangefinder);
+        CHECK_PAYLOAD_SIZE(DISTANCE_SENSOR);
+        send_distance_sensor_downward(plane.rangefinder);
         break;
 
     case MSG_TERRAIN:
@@ -699,6 +689,7 @@ bool GCS_MAVLINK_Plane::try_send_message(enum ap_message id)
     case MSG_AOA_SSA:
         CHECK_PAYLOAD_SIZE(AOA_SSA);
         plane.send_aoa_ssa(chan);
+        break;
     case MSG_LANDING:
         plane.landing.send_landing_message(chan);
         break;
@@ -1406,12 +1397,6 @@ void GCS_MAVLINK_Plane::handleMessage(mavlink_message_t* msg)
                     result = MAV_RESULT_ACCEPTED;
                 }
             }
-
-            if (result == MAV_RESULT_ACCEPTED) {
-                plane.gcs_send_text(MAV_SEVERITY_INFO,"Go around command accepted");
-            } else {
-                plane.gcs_send_text(MAV_SEVERITY_NOTICE,"Rejected go around command");
-            }
             break;
 
         case MAV_CMD_DO_FENCE_ENABLE:
@@ -1967,10 +1952,6 @@ void GCS_MAVLINK_Plane::handleMessage(mavlink_message_t* msg)
         // send message to Notify
         AP_Notify::handle_play_tune(msg);
         break;
-        
-    case MAVLINK_MSG_ID_REMOTE_LOG_BLOCK_STATUS:
-        plane.DataFlash.remote_log_block_status_msg(chan, msg);
-        break;
 
     case MAVLINK_MSG_ID_SET_ATTITUDE_TARGET:
     {
@@ -2147,6 +2128,7 @@ void Plane::mavlink_delay_cb()
     if (!gcs().chan(0).initialised || in_mavlink_delay) return;
 
     in_mavlink_delay = true;
+    DataFlash.EnableWrites(false);
 
     uint32_t tnow = millis();
     if (tnow - last_1hz > 1000) {
@@ -2165,6 +2147,7 @@ void Plane::mavlink_delay_cb()
         gcs_send_text(MAV_SEVERITY_INFO, "Initialising APM");
     }
 
+    DataFlash.EnableWrites(true);
     in_mavlink_delay = false;
 }
 

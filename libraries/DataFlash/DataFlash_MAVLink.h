@@ -40,7 +40,7 @@ public:
                                bool is_critical) override;
 
     // initialisation
-    bool CardInserted(void) override { return true; }
+    bool CardInserted(void) const override { return true; }
 
     // erase handling
     void EraseAll() override {}
@@ -66,6 +66,10 @@ public:
     void push_log_blocks() override;
 
     void remote_log_block_status_msg(mavlink_channel_t chan, mavlink_message_t* msg) override;
+
+protected:
+
+    bool WritesOK() const override;
 
 private:
 

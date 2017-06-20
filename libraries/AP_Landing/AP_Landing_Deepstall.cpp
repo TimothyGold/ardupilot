@@ -71,7 +71,7 @@ const AP_Param::GroupInfo AP_Landing_Deepstall::var_info[] = {
 
     // @Param: ELEV_PWM
     // @DisplayName: Deepstall elevator PWM
-    // @Description: The PWM value for the elevator at full deflection in deepstall
+    // @Description: The PWM value in microseconds for the elevator at full deflection in deepstall
     // @Range: 900 2100
     // @Units: PWM
     // @User: Advanced
@@ -270,6 +270,7 @@ bool AP_Landing_Deepstall::verify_land(const Location &prev_WP_loc, Location &ne
     case DEEPSTALL_STAGE_LAND:
         // while in deepstall the only thing verify needs to keep the extended approach point sufficently far away
         landing.nav_controller->update_waypoint(current_loc, extended_approach);
+        landing.disarm_if_autoland_complete_fn();
         return false;
     default:
         return true;

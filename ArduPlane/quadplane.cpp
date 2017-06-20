@@ -213,7 +213,7 @@ const AP_Param::GroupInfo QuadPlane::var_info[] = {
     // @Param: FRAME_CLASS
     // @DisplayName: Frame Class
     // @Description: Controls major frame class for multicopter component
-    // @Values: 0:Undefined, 1:Quad, 2:Hexa, 3:Octa, 4:OctaQuad, 5:Y6, 7:Tri
+    // @Values: 0:Undefined, 1:Quad, 2:Hexa, 3:Octa, 4:OctaQuad, 5:Y6, 7:Tri, 10: TailSitter
     // @User: Standard
     AP_GROUPINFO("FRAME_CLASS", 46, QuadPlane, frame_class, 1),
 
@@ -792,7 +792,7 @@ void QuadPlane::check_yaw_reset(void)
     if (new_ekfYawReset_ms != ekfYawReset_ms) {
         attitude_control->shift_ef_yaw_target(degrees(yaw_angle_change_rad) * 100);
         ekfYawReset_ms = new_ekfYawReset_ms;
-        GCS_MAVLINK::send_statustext_all(MAV_SEVERITY_INFO, "EKF yaw reset %.2f", degrees(yaw_angle_change_rad));
+        GCS_MAVLINK::send_statustext_all(MAV_SEVERITY_INFO, "EKF yaw reset %.2f", (double)degrees(yaw_angle_change_rad));
     }
 }
 

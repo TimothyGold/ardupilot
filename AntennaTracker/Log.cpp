@@ -88,27 +88,16 @@ void Tracker::Log_Write_Vehicle_Startup_Messages()
 void Tracker::start_logging()
 {
     if (g.log_bitmask != 0) {
-        if (!logging_started) {
-            logging_started = true;
-            DataFlash.StartNewLog();
-        }
-        // enable writes
-        DataFlash.EnableWrites(true);
+        DataFlash.StartUnstartedLogging();
     }
 }
 
 void Tracker::log_init(void)
 {
     DataFlash.Init(log_structure, ARRAY_SIZE(log_structure));
-    if (!DataFlash.CardInserted()) {
-        gcs_send_text(MAV_SEVERITY_WARNING, "No dataflash card inserted");
-    } else if (DataFlash.NeedPrep()) {
-        gcs_send_text(MAV_SEVERITY_INFO, "Preparing log system");
-        DataFlash.Prep();
-        gcs_send_text(MAV_SEVERITY_INFO, "Prepared log system");
-        for (uint8_t i=0; i<num_gcs; i++) {
-            gcs_chan[i].reset_cli_timeout();
-        }
+
+    for (uint8_t i=0; i<num_gcs; i++) {
+        gcs_chan[i].reset_cli_timeout();
     }
 
     if (g.log_bitmask != 0) {

@@ -107,9 +107,14 @@ public:
     //
     // set_voltage - set voltage to be used for output scaling
     void                set_voltage(float volts){ _batt_voltage = volts; }
+    void                set_voltage_resting_estimate(float volts) { _batt_voltage_resting_estimate = volts; }
 
     // set_current - set current to be used for output scaling
     void                set_current(float current){ _batt_current = current; }
+
+    // get and set battery resistance estimate
+    float               get_batt_resistance() const { return _batt_resistance; }
+    void                set_resistance(float resistance){ _batt_resistance = resistance; }
 
     // set_density_ratio - sets air density as a proportion of sea level density
     void                set_air_density_ratio(float ratio) { _air_density_ratio = ratio; }
@@ -159,7 +164,7 @@ public:
     // set loop rate. Used to support loop rate as a parameter
     void                set_loop_rate(uint16_t loop_rate) { _loop_rate = loop_rate; }
 
-    enum pwm_type { PWM_TYPE_NORMAL=0, PWM_TYPE_ONESHOT=1, PWM_TYPE_ONESHOT125=2, PWM_TYPE_BRUSHED16kHz=3 };
+    enum pwm_type { PWM_TYPE_NORMAL=0, PWM_TYPE_ONESHOT=1, PWM_TYPE_ONESHOT125=2, PWM_TYPE_BRUSHED=3 };
     pwm_type            get_pwm_type(void) const { return (pwm_type)_pwm_type.get(); }
     
 protected:
@@ -207,7 +212,9 @@ protected:
 
     // battery voltage, current and air pressure compensation variables
     float               _batt_voltage;          // latest battery voltage reading
+    float               _batt_voltage_resting_estimate; // estimated battery voltage with sag removed
     float               _batt_current;          // latest battery current reading
+    float               _batt_resistance;       // latest battery resistance estimate in ohms
     float               _air_density_ratio;     // air density / sea level density - decreases in altitude
 
     // mapping to output channels
